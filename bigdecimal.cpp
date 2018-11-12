@@ -1,67 +1,12 @@
 /*
  *
- * BigDecimal(Variable decimal precision) extension library.
+ * BigDecimal(Variable decimal precision) C/C++ library.
  *
  * Copyright(C) 2012 by Shigeo Kobayashi(shigeo@tinyforest.jp)
  *
  */
 
 #include "stdafx.h"
-
-static int     gAllocCount     = 0;                /* VP_HANDLE allocation count */
-static int     gRoundMode      = VP_ROUND_HALF_UP; /* Default rounding mode */
-
-/* Print options for VP_HANDLE */
-static VP_UINT gDigitSeparationCount = 10;
-static char    gDigitSeparator = ' ';
-static char    gDigitsAlign    = '+'; /* must be 0 or 
-				 				      '+' ... '+' is printed for posotive number.
-				 				      ' ' ...  ' ' is printed for positive number.
-			 						  */
-VP_EXPORT(int) VpGetRoundMode() {return gRoundMode;}
-VP_EXPORT(int) VpSetRoundMode(int m) {
-	switch(m) {
-	case VP_ROUND_UP:
-	case VP_ROUND_DOWN:
-	case VP_ROUND_HALF_UP:
-	case VP_ROUND_HALF_DOWN:
-	case VP_ROUND_CEIL:
-	case VP_ROUND_FLOOR:
-	case VP_ROUND_HALF_EVEN:
-		gRoundMode = m;
-		break;
-	default: ASSERT(FALSE);
-		break;
-	}
-	return gRoundMode;
-}
-VP_EXPORT(VP_UINT) VpGetDigitSeparationCount() {return gDigitSeparationCount;}
-VP_EXPORT(VP_UINT) VpSetDigitSeparationCount(VP_UINT m) {if(m<=10000) gDigitSeparationCount = m;return gDigitSeparationCount;}
-VP_EXPORT(char)    VpGetDigitSeparator() {return gDigitSeparator;}
-VP_EXPORT(char)    VpSetDigitSeparator(char c) {
-	switch(c) {
-	case '\0':
-	case '+':
-	case '-':
-		return gDigitSeparator;
-	}
-	if(!isdigit(c)) gDigitSeparator = c;
-	return gDigitSeparator;
-}
-VP_EXPORT(char) VpGetDigitsAlign() {return gDigitsAlign;}
-VP_EXPORT(char) VpSetDigitsAlign(char c) {
-	switch(c) {
-	case '\0':
-	case ' ':
-	case '+':
-		gDigitsAlign = c;
-		break;
-	default:
-		ASSERT(FALSE);
-	}
-	return gDigitsAlign;
-}
-
 
 /* following constants are computed in VpInit()    */
 static VP_UINT  BASE_FIG = 4;        /* =log10(BASE)  */
@@ -74,17 +19,16 @@ static VP_UINT  DBLE_FIG  = 0; /* = (DBL_DIG+1): figure of double */
 static Real    *VpConstOne;    /* constant 1.0    */
 static Real    *VpConstPt5;    /* constant 0.5    */
 
+static int     gAllocCount     = 0;                /* VP_HANDLE allocation count */
+static int     gRoundMode      = VP_ROUND_HALF_UP; /* Default rounding mode */
 
-void VpToFString(Real *a, char *psz, VP_UINT fFmt, char *fmt);
-void VpToEString(Real *a, char *psz, VP_UINT fFmt, char *fmt);
-int  VpNmlz(Real *a);
-int  VpRdup(Real *m, VP_UINT ind_m);
-int  VpException(Real *p,int f, const char *str);
-
-int    VpIsDefOP(Real *c,Real *a,Real *b,char op);
-int    VpAddAbs(Real *a,Real *b,Real *c);
-int    VpSubAbs(Real *a,Real *b,Real *c);
-VP_UINT VpSetPTR(Real *a, Real *b, Real *c, VP_UINT *a_pos, VP_UINT *b_pos, VP_UINT *c_pos, VP_DIGIT *av, VP_DIGIT *bv);
+/* Print options for VP_HANDLE */
+static VP_UINT gDigitSeparationCount = 10;
+static char    gDigitSeparator = ' ';
+static char    gDigitLeader    = '+'; /* must be 0 or 
+				 				      '+' ... '+' is printed for posotive number.
+				 				      ' ' ...  ' ' is printed for positive number.
+			 						  */
 
 /*
    ------------------------------------------------
@@ -97,20 +41,34 @@ class CInitializer
 public:
 	CInitializer()
 	{
+#ifdef _DEBUG
 		printf("\n------CInitializer()-----\n");
+#endif
 		VpInit();
 	};
-	~CInitializer();
+	~CInitializer()
+	{
+#ifdef _DEBUG
+		printf("~CInitializer: gAllocCount=%d\n",gAllocCount);
+#endif
+	};
 };
 static CInitializer *gInit = new CInitializer();
 // ---------------------------------------------------
+
+static int
+	VpHasVal(VP_HANDLE a)
+{
+	return ((Real*)a)->frac[0]!=0;
+}
+
 
 /*
    Allocate empty Real(==0.0)
    mx ... number of digits the allocated Real can have.
 */
 static Real *
-VpAllocReal(VP_UINT m)
+	VpAllocReal(VP_UINT m)
 {
 	int    mx  = (m+BASE_FIG-1)/BASE_FIG + 1; 
 	VP_UINT s  = sizeof(Real)+mx*sizeof(VP_DIGIT);
@@ -126,88 +84,112 @@ VpAllocReal(VP_UINT m)
 	return p;
 }
 
-// for sprintf_s().
-void sprintfs(char *psz,const char *fmt,...)
+/*
+  If exponent overflows then 0
+  or returns 1.
+*/
+static int
+	AddExponent(Real *a, int n)
 {
-	char buf[512];
-    va_list ap;
-    va_start(ap, fmt);
-	vsprintf_s(buf,510,fmt,ap);
-    va_end(ap);
-	lstrcpy(psz,buf); 
+    int   e = a->exponent;
+    int   m = e+n;
+    int   eb, mb;
+    if(e>0) {
+        if(n>0) {
+            mb = m*(int  )BASE_FIG;
+            eb = e*(int  )BASE_FIG;
+            if(mb<eb) goto overflow;
+        }
+    } else if(n<0) {
+        mb = m*(int  )BASE_FIG;
+        eb = e*(int  )BASE_FIG;
+        if(mb>eb) goto underflow;
+    }
+    a->exponent = m;
+    return 1;
+
+/* Overflow/Underflow ==> Raise exception or returns 0 */
+underflow:
+    VpSetZero((VP_HANDLE)a,VP_SIGN(a));
+    return 0;
+
+overflow:
+    VpSetInf((VP_HANDLE)a,VP_SIGN(a));
+    return 0;
 }
 
-VP_EXPORT(void)
-VpNegate(VP_HANDLE p)
+/*
+ *  Input  a = 00000xxxxxxxx En(5 preceeding zeros)
+ *  Output a = xxxxxxxx En-5
+ */
+static VP_HANDLE
+	VpNmlz(Real *a)
 {
-	((Real*)p)->sign = -((Real*)p)->sign;
+    VP_UINT ind_a, i;
+
+    if (!VpIsNumeric((VP_HANDLE)a)) goto NoVal;
+    if (VpIsZero((VP_HANDLE)a)) goto NoVal;
+
+    ind_a = a->Prec;
+    while (ind_a--) {
+        if (a->frac[ind_a]) {
+            a->Prec = ind_a + 1;
+            i = 0;
+            while (a->frac[i] == 0) ++i;        /* skip the first few zeros */
+            if (i) {
+                a->Prec -= i;
+                if (!AddExponent(a, -(int)i)) return (VP_HANDLE)a;
+                memmove(&a->frac[0], &a->frac[i], a->Prec*sizeof(VP_DIGIT));
+            }
+            return (VP_HANDLE)a;
+        }
+    }
+    /* a is zero(no non-zero digit) */
+    VpSetZero((VP_HANDLE)a, VP_SIGN(a));
+    return (VP_HANDLE)a;
+
+NoVal:
+    a->frac[0] = 0;
+    a->Prec = 1;
+    return (VP_HANDLE)a;
 }
 
-VP_EXPORT(VP_UINT)
-VpBaseFig()
+/*
+ *  Rounds up m(plus one to final digit of m).
+ */
+static int
+	VpRdup(Real *m, VP_UINT ind_m)
 {
-	return BASE_FIG;
-}
+    int  carry;
 
-VP_EXPORT(VP_DIGIT)
-VpBase()
-{
-	return BASE;
-}
+    if (!ind_m) ind_m = m->Prec;
 
-VP_EXPORT(VP_UINT)
-VpMaxPrec(VP_HANDLE p)
-{
-	return (((Real*)p)->MaxPrec)*BASE_FIG;
-}
-
-VP_EXPORT(int)
-VpPrec(VP_HANDLE p)
-{
-	if(!VpIsDef(p)) return 0;
-	int n = (((Real*)p)->Prec-1)*BASE_FIG;
-	VP_DIGIT v = ((Real*)p)->frac[0];
-	while(v > 0)
-	{
-		++n;
-		v /= 10;
-	}
-	v = ((Real*)p)->frac[((Real*)p)->Prec-1];
-	while( (v % 10) == 0 && v>0)
-	{
-		--n;
-		v /= 10;
-	}
-	return n;
-}
-
-
-
-
-VP_EXPORT(VP_HANDLE)
-VpClone(VP_HANDLE p)
-{
-	Real *r = (Real*)p;
-    ASSERT(p != 0);
-	if(p==NULL) return (VP_HANDLE)VP_ERROR_BAD_HANDLE;
-	Real *t = (Real*)VpAllocReal(r->MaxPrec*BASE_FIG);
-	if(t==NULL) return (VP_HANDLE)VP_ERROR_MEMORY_ALLOCATION;
-	memcpy(t,r,r->Size);
-    return (VP_HANDLE)t;
+    carry = 1;
+    while (carry > 0 && (ind_m--)) {
+        m->frac[ind_m] += carry;
+        if (m->frac[ind_m] >= BASE) m->frac[ind_m] -= BASE;
+        else                        carry = 0;
+    }
+    if(carry > 0) {        /* Overflow,count exponent and set fraction part be 1  */
+        if (!AddExponent(m, 1)) return 0;
+        m->Prec    = 1;
+        m->frac[0] = 1;
+    } else {
+        VpNmlz(m);
+    }
+    return 1;
 }
 
 
 static void
-VpInternalRound(Real *c, int ixDigit, VP_DIGIT vPrev, VP_DIGIT v)
+	VpInternalRound(Real *c, int ixDigit, VP_DIGIT vPrev, VP_DIGIT v)
 {
     int f = 0;
-
-    unsigned short const rounding_mode = VpGetRoundMode();
 
     if (!v) goto Exit;
 
     v /= BASE1;
-    switch (rounding_mode)
+    switch (VpGetRoundMode())
 	{
     case VP_ROUND_DOWN:
 		break;
@@ -237,19 +219,19 @@ VpInternalRound(Real *c, int ixDigit, VP_DIGIT vPrev, VP_DIGIT v)
 		break;
     }
 
-    if (f) {
-		VpRdup(c, ixDigit);
-    }
+    if (f) VpRdup(c, ixDigit);
 
 Exit:
 	VpNmlz(c);
 }
 
 /*
- c = a op b ‚ÌŒ‹‰Ê‚ª NaN Infinity “™‚É‚È‚ç‚È‚¯‚ê‚Î ‚PB
- NaN Infinity “™‚Ìê‡‚Íƒ[ƒB 
+ check if the result of c = a op b,
+    if the result is not NaN or Infinity then returns 1.
+    otherwise (NaN or Infinity),returns 0.
 */
-int VpIsDefOP(Real *c,Real *a,Real *b,char op)
+static int 
+	VpIsNumericOP(Real *c,Real *a,Real *b,char op)
 {
     if(VpIsNaN((VP_HANDLE)a) || VpIsNaN((VP_HANDLE)b)) {
         /* at least a or b is NaN */
@@ -359,268 +341,108 @@ int VpIsDefOP(Real *c,Real *a,Real *b,char op)
     return 1; /* Results OK */
 }
 
-//
-// operation ... +1 addition
-//               -1 subtruction
-// returns c's sign
-//
-VP_EXPORT(int)
-VpAddSub(VP_HANDLE pc, VP_HANDLE pa, VP_HANDLE pb, int operation,int ixRound)
+
+/*
+ * Note: If(av+bv)>= HALF_BASE,then 1 will be added to the least significant
+ *    digit of c(In case of addition).
+ * ------------------------- figure of output -----------------------------------
+ *      a =  xxxxxxxxxxx
+ *      b =    xxxxxxxxxx
+ *      c =xxxxxxxxxxxxxxx
+ *      word_shift =  |   |
+ *      right_word =  |    | (Total digits in RHSV)
+ *      left_word  = |   |   (Total digits in LHSV)
+ *      a_pos      =    |
+ *      b_pos      =     |
+ *      c_pos      =      |
+ */
+static VP_UINT 
+	VpSetPTR(Real *a, Real *b, Real *c, VP_UINT *a_pos, VP_UINT *b_pos, VP_UINT *c_pos, VP_DIGIT *av, VP_DIGIT *bv)
 {
-	Real *c = (Real*)pc;
-	Real *a = (Real*)pa;
-	Real *b = (Real*)pb;
-
-    short isw;
-    Real *a_ptr, *b_ptr;
-    VP_UINT n, na, nb, i;
-    VP_DIGIT  mrv;
-	char op = '+';
-	if(operation<0) op = '-';
-    if(!VpIsDefOP(c,a,b,op)) goto Exit;
-	
-    /* check if a or b is zero  */
-    if(VpIsZero((VP_HANDLE)a)) {
-        /* a is zero,then assign b to c */
-        if(!VpIsZero((VP_HANDLE)b)) {
-            VpAsgn((VP_HANDLE)c, (VP_HANDLE)b, operation);
-        } else {
-            /* Both a and b are zero. */
-            if(VP_SIGN(a)<0 && operation*VP_SIGN(b)<0) {
-                /* -0 -0 */
-                VpSetZero((VP_HANDLE)c,-1);
-            } else {
-                VpSetZero((VP_HANDLE)c,1);
-            }
-        }
-        goto Exit;
-    }
-
-    if(VpIsZero((VP_HANDLE)b)) {
-        /* b is zero,then assign a to c. */
-        VpAsgn((VP_HANDLE)c, (VP_HANDLE)a, 1);
-        goto Exit;
-    }
-
-
-    /* compare absolute value. As a result,|a_ptr|>=|b_ptr| */
-    if(a->exponent > b->exponent) {
-        a_ptr = a;
-        b_ptr = b;
-    }         /* |a|>|b| */
-    else if(a->exponent < b->exponent) {
-        a_ptr = b;
-        b_ptr = a;
-    }                /* |a|<|b| */
-    else {
-        /* Exponent part of a and b is the same,then compare fraction */
-        /* part */
-        na = a->Prec;
-        nb = b->Prec;
-        n = Min(na, nb);
-        for(i=0;i < n; ++i) {
-            if(a->frac[i] > b->frac[i]) {
-                a_ptr = a;
-                b_ptr = b;
-                goto end_if;
-            } else if(a->frac[i] < b->frac[i]) {
-                a_ptr = b;
-                b_ptr = a;
-                goto end_if;
-            }
-        }
-        if(na > nb) {
-         a_ptr = a;
-            b_ptr = b;
-            goto end_if;
-        } else if(na < nb) {
-            a_ptr = b;
-            b_ptr = a;
-            goto end_if;
-        }
-        /* |a| == |b| */
-        if(VP_SIGN(a) + operation *VP_SIGN(b) == 0) {
-            VpSetZero((VP_HANDLE)c,1);        /* abs(a)=abs(b) and operation = '-'  */
-            goto Exit;
-        }
-        a_ptr = a;
-        b_ptr = b;
-    }
-
-end_if:
-    isw = VP_SIGN(a) + operation *VP_SIGN(b);
+    VP_UINT left_word, right_word, word_shift;
+    c->frac[0] = 0;
+    *av = *bv = 0;
+    word_shift =((a->exponent) -(b->exponent));
+    left_word = b->Prec + word_shift;
+    right_word = Max((a->Prec),left_word);
+    left_word =(c->MaxPrec) - 1;    /* -1 ... prepare for round up */
     /*
-     *  isw = 0 ...( 1)+(-1),( 1)-( 1),(-1)+(1),(-1)-(-1)
-     *      = 2 ...( 1)+( 1),( 1)-(-1)
-     *      =-2 ...(-1)+(-1),(-1)-( 1)
-     *   If isw==0, then c =(Sign a_ptr)(|a_ptr|-|b_ptr|)
-     *              else c =(Sign ofisw)(|a_ptr|+|b_ptr|)
-    */
-    if(isw) {            /* addition */
-        VP_FINITE_SIGN(c,1);
-        mrv = VpAddAbs(a_ptr, b_ptr, c);
-        VP_FINITE_SIGN(c, isw / 2);
-    } else {            /* subtraction */
-        VP_FINITE_SIGN(c,1);
-        mrv = VpSubAbs(a_ptr, b_ptr, c);
-        if(a_ptr == a) {
-            VP_SIGN(c) = VP_SIGN(a);
-        } else    {
-            VP_SIGN(c) = VP_SIGN(a_ptr) * operation;
+     * check if 'round' is needed.
+     */
+    if(right_word > left_word) {    /* round ? */
+        /*---------------------------------
+         *  Actual size of a = xxxxxxAxx
+         *  Actual size of b = xxxBxxxxx
+         *  Max. size of   c = xxxxxx
+         *  Round off        =   |-----|
+         *  c_pos            =   |
+         *  right_word       =   |
+         *  a_pos            =    |
+         */
+        *c_pos = right_word = left_word + 1;    /* Set resulting precision */
+        /* be equal to that of c */
+        if((a->Prec) >=(c->MaxPrec)) {
+            /*
+             *   a =  xxxxxxAxxx
+             *   c =  xxxxxx
+             *   a_pos =    |
+             */
+            *a_pos = left_word;
+            *av = a->frac[*a_pos];    /* av is 'A' shown in above. */
+        } else {
+            /*
+             *   a = xxxxxxx
+             *   c = xxxxxxxxxx
+             *  a_pos =     |
+             */
+            *a_pos = a->Prec;
         }
-    }
-    VpInternalRound(c,0,(c->Prec>0)?c->frac[c->Prec-1]:0,mrv);
-
-Exit:
-	if(ixRound>0 &&(c->sign==VP_SIGN_POSITIVE_FINITE||c->sign==VP_SIGN_NEGATIVE_FINITE))
-	{
-		VpLengthRound((VP_HANDLE)c,gRoundMode,ixRound);
-	}
-    return c->sign;
-}
-
-/*
- *  0.0 & 1.0 generator
- *    These gZero_..... and gOne_..... can be any name
- *    referenced from nowhere except Zero() and One().
- *    gZero_..... and gOne_..... must have global scope
- *    (to let the compiler know they may be changed in outside
- *    (... but not actually..)).
- */
-volatile const double gZero_ABCED9B1_CE73__00400511F31D = 0.0;
-volatile const double gOne_ABCED9B4_CE73__00400511F31D  = 1.0;
-
-static double
-Zero(void)
-{
-    return gZero_ABCED9B1_CE73__00400511F31D;
-}
-
-static double
-One(void)
-{
-    return gOne_ABCED9B4_CE73__00400511F31D;
-}
-
-static double
-VpGetDoubleNaN(void) /* Returns the value of NaN */
-{
-    double fNaN = 0.0;
-    if(fNaN==0.0) fNaN = Zero()/Zero();
-    return fNaN;
-}
-
-static double
-VpGetDoublePosInf(void) /* Returns the value of +Infinity */
-{
-    double fInf = 0.0;
-    if(fInf==0.0) fInf = One()/Zero();
-    return fInf;
-}
-
-static double
-VpGetDoubleNegInf(void) /* Returns the value of -Infinity */
-{
-    double fInf = 0.0;
-    if(fInf==0.0) fInf = -(One()/Zero());
-    return fInf;
-}
-
-static double
-VpGetDoubleNegZero(void) /* Returns the value of -0 */
-{
-    double nzero = 1000.0;
-    if(nzero!=0.0) nzero = (One()/VpGetDoubleNegInf());
-    return nzero;
-}
-
-int VpException(Real *p,int f, const char *str)
-{
-    return f;
-}
-
-
-/*
- * Initializer Vp routines and constants used.
- */
-static void 
-VpInit()
-{
-	ASSERT(sizeof(VP_DIGIT)==4 || sizeof(VP_DIGIT)==8);
-	if(sizeof(VP_DIGIT)==4) {
-		/* 32-bit */ 
-		BASE_FIG = 4;       /* =log10(BASE)  */
-		BASE     = 10000UL; /* Base value(value must be 10**BASE_FIG) */
-                            /* The value of BASE**2 + BASE must be represented */
-                            /* within one VP_DIGIT. */
-	}
-	if(sizeof(VP_DIGIT)==8) {
-		/* 64-bit */ 
-		BASE_FIG = 9;
-		BASE     = 1000000000ULL;
-	}
-
-	HALF_BASE = (BASE/2);
-	BASE1     = (BASE/10);
-	DBLE_FIG  = (DBL_DIG+1);    /* figure of double */
-
-    /* Setup +/- Inf  NaN -0 */
-    VpGetDoubleNaN();
-    VpGetDoublePosInf();
-    VpGetDoubleNegInf();
-    VpGetDoubleNegZero();
-
-    /* Allocates Vp constants. */
-    VpConstOne = (Real*)VpAlloc("1",1);
-	VpConstPt5 = (Real*)VpAlloc("0.5",1);
-	gAllocCount = 0; /* Avobe 2 Reals are not counted. */
-}
-
-Real *
-VpOne(void)
-{
-    return VpConstOne;
-}
-
-/* If exponent overflows,then raise exception or returns 0 */
-int
-AddExponent(Real *a, int   n)
-{
-    int   e = a->exponent;
-    int   m = e+n;
-    int   eb, mb;
-    if(e>0) {
-        if(n>0) {
-            mb = m*(int  )BASE_FIG;
-            eb = e*(int  )BASE_FIG;
-            if(mb<eb) goto overflow;
+        if((b->Prec + word_shift) >= c->MaxPrec) {
+            /*
+             *   a = xxxxxxxxx
+             *   b =  xxxxxxxBxxx
+             *   c = xxxxxxxxxxx
+             *  b_pos =   |
+             */
+            if(c->MaxPrec >=(word_shift + 1)) {
+                *b_pos = c->MaxPrec - word_shift - 1;
+                *bv = b->frac[*b_pos];
+            } else {
+                *b_pos = -1L;
+            }
+        } else {
+            /*
+             *   a = xxxxxxxxxxxxxxxx
+             *   b =  xxxxxx
+             *   c = xxxxxxxxxxxxx
+             *  b_pos =     |
+             */
+            *b_pos = b->Prec;
         }
-    } else if(n<0) {
-        mb = m*(int  )BASE_FIG;
-        eb = e*(int  )BASE_FIG;
-        if(mb>eb) goto underflow;
+    } else {            /* The MaxPrec of c - 1 > The Prec of a + b  */
+        /*
+         *    a =   xxxxxxx
+         *    b =   xxxxxx
+         *    c = xxxxxxxxxxx
+         *   c_pos =   |
+         */
+        *b_pos = b->Prec;
+        *a_pos = a->Prec;
+        *c_pos = right_word + 1;
     }
-    a->exponent = m;
-    return 1;
-
-/* Overflow/Underflow ==> Raise exception or returns 0 */
-underflow:
-    VpSetZero((VP_HANDLE)a,VP_SIGN(a));
-    return VpException(a,VP_EXCEPTION_UNDERFLOW,"Exponent underflow");
-
-overflow:
-    VpSetInf((VP_HANDLE)a,VP_SIGN(a));
-    return VpException(a,VP_EXCEPTION_OVERFLOW,"Exponent overflow");
+    c->Prec = *c_pos;
+    c->exponent = a->exponent;
+    if(!AddExponent(c,1)) return (VP_UINT)-1L;
+    return word_shift;
 }
-
 
 /*
  * Addition of two variable precisional variables
  * a and b assuming abs(a)>abs(b).
  *   c = abs(a) + abs(b) ; where |a|>=|b|
  */
-int 
-VpAddAbs(Real *a, Real *b, Real *c)
+static int
+	VpAddAbs(Real *a, Real *b, Real *c)
 {
     VP_UINT    word_shift;
     VP_UINT    ap;
@@ -699,8 +521,8 @@ Exit:
 /*
  * c = abs(a) - abs(b)
  */
-int 
-VpSubAbs(Real *a, Real *b, Real *c)
+static int 
+	VpSubAbs(Real *a, Real *b, Real *c)
 {
     VP_UINT   word_shift;
     VP_UINT   ap;
@@ -799,232 +621,220 @@ Exit:
     return (int)mrv;
 }
 
-/*
- * Note: If(av+bv)>= HALF_BASE,then 1 will be added to the least significant
- *    digit of c(In case of addition).
- * ------------------------- figure of output -----------------------------------
- *      a =  xxxxxxxxxxx
- *      b =    xxxxxxxxxx
- *      c =xxxxxxxxxxxxxxx
- *      word_shift =  |   |
- *      right_word =  |    | (Total digits in RHSV)
- *      left_word  = |   |   (Total digits in LHSV)
- *      a_pos      =    |
- *      b_pos      =     |
- *      c_pos      =      |
- */
-VP_UINT 
-VpSetPTR(Real *a, Real *b, Real *c, VP_UINT *a_pos, VP_UINT *b_pos, VP_UINT *c_pos, VP_DIGIT *av, VP_DIGIT *bv)
+
+//
+// operation ... +1 addition
+//               -1 subtruction
+// returns c
+//
+static VP_HANDLE
+	VpAddSub(Real *c, Real *a, Real *b, int operation)
 {
-    VP_UINT left_word, right_word, word_shift;
-    c->frac[0] = 0;
-    *av = *bv = 0;
-    word_shift =((a->exponent) -(b->exponent));
-    left_word = b->Prec + word_shift;
-    right_word = Max((a->Prec),left_word);
-    left_word =(c->MaxPrec) - 1;    /* -1 ... prepare for round up */
-    /*
-     * check if 'round' is needed.
-     */
-    if(right_word > left_word) {    /* round ? */
-        /*---------------------------------
-         *  Actual size of a = xxxxxxAxx
-         *  Actual size of b = xxxBxxxxx
-         *  Max. size of   c = xxxxxx
-         *  Round off        =   |-----|
-         *  c_pos            =   |
-         *  right_word       =   |
-         *  a_pos            =    |
-         */
-        *c_pos = right_word = left_word + 1;    /* Set resulting precision */
-        /* be equal to that of c */
-        if((a->Prec) >=(c->MaxPrec)) {
-            /*
-             *   a =  xxxxxxAxxx
-             *   c =  xxxxxx
-             *   a_pos =    |
-             */
-            *a_pos = left_word;
-            *av = a->frac[*a_pos];    /* av is 'A' shown in above. */
+    short isw;
+    Real *a_ptr, *b_ptr;
+    VP_UINT n, na, nb, i;
+    VP_DIGIT  mrv;
+	char op = '+';
+	if(operation<0) op = '-';
+    if(!VpIsNumericOP(c,a,b,op)) goto Exit;
+	
+    /* check if a or b is zero  */
+    if(VpIsZero((VP_HANDLE)a)) {
+        /* a is zero,then assign b to c */
+        if(!VpIsZero((VP_HANDLE)b)) {
+            VpAsgn((VP_HANDLE)c, (VP_HANDLE)b, operation);
         } else {
-            /*
-             *   a = xxxxxxx
-             *   c = xxxxxxxxxx
-             *  a_pos =     |
-             */
-            *a_pos = a->Prec;
-        }
-        if((b->Prec + word_shift) >= c->MaxPrec) {
-            /*
-             *   a = xxxxxxxxx
-             *   b =  xxxxxxxBxxx
-             *   c = xxxxxxxxxxx
-             *  b_pos =   |
-             */
-            if(c->MaxPrec >=(word_shift + 1)) {
-                *b_pos = c->MaxPrec - word_shift - 1;
-                *bv = b->frac[*b_pos];
+            /* Both a and b are zero. */
+            if(VP_SIGN(a)<0 && operation*VP_SIGN(b)<0) {
+                /* -0 -0 */
+                VpSetZero((VP_HANDLE)c,-1);
             } else {
-                *b_pos = -1L;
+                VpSetZero((VP_HANDLE)c,1);
             }
-        } else {
-            /*
-             *   a = xxxxxxxxxxxxxxxx
-             *   b =  xxxxxx
-             *   c = xxxxxxxxxxxxx
-             *  b_pos =     |
-             */
-            *b_pos = b->Prec;
         }
-    } else {            /* The MaxPrec of c - 1 > The Prec of a + b  */
-        /*
-         *    a =   xxxxxxx
-         *    b =   xxxxxx
-         *    c = xxxxxxxxxxx
-         *   c_pos =   |
-         */
-        *b_pos = b->Prec;
-        *a_pos = a->Prec;
-        *c_pos = right_word + 1;
-    }
-    c->Prec = *c_pos;
-    c->exponent = a->exponent;
-    if(!AddExponent(c,1)) return (VP_UINT)-1L;
-    return word_shift;
-}
-
-/*
- * must be  MaxPrec(c) > Prec(a)+Prec(b) , or VP_ERROR_BAD_LEFT is thrown.
- *
- *       c = a * b , Where a = a0a1a2 ... an
- *             b = b0b1b2 ... bm
- *             c = c0c1c2 ... cl
- *          a0 a1 ... an   * bm
- *       a0 a1 ... an   * bm-1
- *         .   .    .
- *       .   .   .
- *        a0 a1 .... an    * b0
- *      +_____________________________
- *     c0 c1 c2  ......  cl
- *     nc      <---|
- *     MaxAB |--------------------|
- */
-VP_EXPORT(int)
-VpMult(VP_HANDLE pc, VP_HANDLE pa, VP_HANDLE pb,int ixRound)
-{
-	Real *c = (Real*)pc;
-	Real *a = (Real*)pa;
-	Real *b = (Real*)pb;
-
-    VP_UINT   MxIndA, MxIndB, MxIndAB, MxIndC;
-    VP_UINT   ind_c, i, ii, nc;
-    VP_UINT   ind_as, ind_ae, ind_bs;
-    VP_DIGIT carry;
-    VP_DIGIT s;
-
-    if(!VpIsDefOP(c,a,b,'*')) goto Exit; /* No significant digit */
-
-    if(VpIsZero((VP_HANDLE)a) || VpIsZero((VP_HANDLE)b)) {
-        /* at least a or b is zero */
-        VpSetZero((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b));
-        goto Exit; /* 0: 1 significant digit */
-    }
-
-    if(VpIsOne((VP_HANDLE)a)) {
-        VpAsgn((VP_HANDLE)c, (VP_HANDLE)b, VP_SIGN(a));
         goto Exit;
     }
-    if(VpIsOne((VP_HANDLE)b)) {
-        VpAsgn((VP_HANDLE)c, (VP_HANDLE)a, VP_SIGN(b));
+
+    if(VpIsZero((VP_HANDLE)b)) {
+        /* b is zero,then assign a to c. */
+        VpAsgn((VP_HANDLE)c, (VP_HANDLE)a, 1);
         goto Exit;
     }
-    if((b->Prec) >(a->Prec)) {
-        /* Adjust so that digits(a)>digits(b) */
-        Real *w = a;
-        a = b;
-        b = w;
-    }
-    MxIndA = a->Prec - 1;
-    MxIndB = b->Prec - 1;
-    MxIndC = c->MaxPrec - 1;
-    MxIndAB = a->Prec + b->Prec - 1;
 
-    if(MxIndC < MxIndAB) {    /* The Max. prec. of c < Prec(a)+Prec(b) */
-		ASSERT(FALSE);
-		return VP_ERROR_BAD_LEFT;
-	}
-
-    /* set LHSV c info */
-
-    c->exponent = a->exponent;    /* set exponent */
-    if(!AddExponent(c,b->exponent)) {
-		goto Exit;
-    }
-
-    VP_FINITE_SIGN(c,VP_SIGN(a)*VP_SIGN(b));    /* set sign  */
-    carry = 0;
-    nc = ind_c = MxIndAB;
-    memset(c->frac, 0, (nc + 1) * sizeof(int ));        /* Initialize c  */
-    c->Prec = nc + 1;        /* set precision */
-    for(nc = 0; nc < MxIndAB; ++nc, --ind_c) {
-        if(nc < MxIndB) {    /* The left triangle of the Fig. */
-            ind_as = MxIndA - nc;
-            ind_ae = MxIndA;
-            ind_bs = MxIndB;
-        } else if(nc <= MxIndA) {    /* The middle rectangular of the Fig. */
-            ind_as = MxIndA - nc;
-            ind_ae = MxIndA -(nc - MxIndB);
-            ind_bs = MxIndB;
-        } else if(nc > MxIndA) {    /*  The right triangle of the Fig. */
-            ind_as = 0;
-            ind_ae = MxIndAB - nc - 1;
-            ind_bs = MxIndB -(nc - MxIndA);
-        }
-
-        for(i = ind_as; i <= ind_ae; ++i) {
-            s = a->frac[i] * b->frac[ind_bs--];
-            carry = (int )(s / BASE);
-            s -= carry * BASE;
-            c->frac[ind_c] += (int )s;
-            if(c->frac[ind_c] >= BASE) {
-                s = c->frac[ind_c] / BASE;
-                carry += (int )s;
-                c->frac[ind_c] -= (int )(s * BASE);
-            }
-            if(carry) {
-                ii = ind_c;
-                while(ii-- > 0) {
-                    c->frac[ii] += carry;
-                    if(c->frac[ii] >= BASE) {
-                        carry = c->frac[ii] / BASE;
-                        c->frac[ii] -= (carry * BASE);
-                    } else {
-                        break;
-                    }
-                }
+    /* compare absolute value. As a result,|a_ptr|>=|b_ptr| */
+    if(a->exponent > b->exponent) {
+        a_ptr = a;
+        b_ptr = b;
+    }         /* |a|>|b| */
+    else if(a->exponent < b->exponent) {
+        a_ptr = b;
+        b_ptr = a;
+    }                /* |a|<|b| */
+    else {
+        /* Exponent part of a and b is the same,then compare fraction */
+        /* part */
+        na = a->Prec;
+        nb = b->Prec;
+        n = Min(na, nb);
+        for(i=0;i < n; ++i) {
+            if(a->frac[i] > b->frac[i]) {
+                a_ptr = a;
+                b_ptr = b;
+                goto end_if;
+            } else if(a->frac[i] < b->frac[i]) {
+                a_ptr = b;
+                b_ptr = a;
+                goto end_if;
             }
         }
+        if(na > nb) {
+         a_ptr = a;
+            b_ptr = b;
+            goto end_if;
+        } else if(na < nb) {
+            a_ptr = b;
+            b_ptr = a;
+            goto end_if;
+        }
+        /* |a| == |b| */
+        if(VP_SIGN(a) + operation *VP_SIGN(b) == 0) {
+            VpSetZero((VP_HANDLE)c,1);        /* abs(a)=abs(b) and operation = '-'  */
+            goto Exit;
+        }
+        a_ptr = a;
+        b_ptr = b;
     }
+
+end_if:
+    isw = VP_SIGN(a) + operation *VP_SIGN(b);
+    /*
+     *  isw = 0 ...( 1)+(-1),( 1)-( 1),(-1)+(1),(-1)-(-1)
+     *      = 2 ...( 1)+( 1),( 1)-(-1)
+     *      =-2 ...(-1)+(-1),(-1)-( 1)
+     *   If isw==0, then c =(Sign a_ptr)(|a_ptr|-|b_ptr|)
+     *              else c =(Sign ofisw)(|a_ptr|+|b_ptr|)
+    */
+    if(isw) {            /* addition */
+        VP_FINITE_SIGN(c,1);
+        mrv = VpAddAbs(a_ptr, b_ptr, c);
+        VP_FINITE_SIGN(c, isw / 2);
+    } else {            /* subtraction */
+        VP_FINITE_SIGN(c,1);
+        mrv = VpSubAbs(a_ptr, b_ptr, c);
+        if(a_ptr == a) {
+            VP_SIGN(c) = VP_SIGN(a);
+        } else    {
+            VP_SIGN(c) = VP_SIGN(a_ptr) * operation;
+        }
+    }
+    VpInternalRound(c,0,(c->Prec>0)?c->frac[c->Prec-1]:0,mrv);
 
 Exit:
-	VpNmlz(c);
-	if(ixRound>0 && (c->sign==VP_SIGN_POSITIVE_FINITE||c->sign==VP_SIGN_NEGATIVE_FINITE))
-	{
-		VpLengthRound((VP_HANDLE)c,gRoundMode,ixRound);
-	}
-    return c->sign;
+    return (VP_HANDLE)c;
 }
+
+/*
+ *  0.0 & 1.0 generator
+ *    These gZero_..... and gOne_..... can be any name
+ *    referenced from nowhere except Zero() and One().
+ *    gZero_..... and gOne_..... must have global scope
+ *    (to let the compiler know they may be changed in outside
+ *    (... but not actually..)).
+ */
+volatile const double gZero_ABCED9B1_CE73__00400511F31D = 0.0;
+volatile const double gOne_ABCED9B4_CE73__00400511F31D  = 1.0;
+
+static double
+	Zero(void)
+{
+    return gZero_ABCED9B1_CE73__00400511F31D;
+}
+
+static double
+	One(void)
+{
+    return gOne_ABCED9B4_CE73__00400511F31D;
+}
+
+static double
+	VpGetDoubleNaN(void) /* Returns the value of NaN */
+{
+    double fNaN = 0.0;
+    if(fNaN==0.0) fNaN = Zero()/Zero();
+    return fNaN;
+}
+
+static double
+	VpGetDoublePosInf(void) /* Returns the value of +Infinity */
+{
+    double fInf = 0.0;
+    if(fInf==0.0) fInf = One()/Zero();
+    return fInf;
+}
+
+static double
+	VpGetDoubleNegInf(void) /* Returns the value of -Infinity */
+{
+    double fInf = 0.0;
+    if(fInf==0.0) fInf = -(One()/Zero());
+    return fInf;
+}
+
+static double
+	VpGetDoubleNegZero(void) /* Returns the value of -0 */
+{
+    double nzero = 1000.0;
+    if(nzero!=0.0) nzero = (One()/VpGetDoubleNegInf());
+    return nzero;
+}
+
+/*
+ * Initializer Vp routines and constants used.
+ */
+static void 
+	VpInit()
+{
+	ASSERT(sizeof(VP_DIGIT)==4 || sizeof(VP_DIGIT)==8);
+	if(sizeof(VP_DIGIT)==4) {
+		/* 32-bit */ 
+		BASE_FIG = 4;       /* =log10(BASE)  */
+		BASE     = 10000UL; /* Base value(value must be 10**BASE_FIG) */
+                            /* The value of BASE**2 + BASE must be represented */
+                            /* within one VP_DIGIT. */
+	}
+	if(sizeof(VP_DIGIT)==8) {
+		/* 64-bit */ 
+		BASE_FIG = 9;
+		BASE     = 1000000000ULL;
+	}
+
+	HALF_BASE = (BASE/2);
+	BASE1     = (BASE/10);
+	DBLE_FIG  = (DBL_DIG+1);    /* figure of double */
+
+    /* Setup +/- Inf  NaN -0 */
+    VpGetDoubleNaN();
+    VpGetDoublePosInf();
+    VpGetDoubleNegInf();
+    VpGetDoubleNegZero();
+
+    /* Allocates Vp constants. */
+    VpConstOne = (Real*)VpAlloc("1",1);
+	VpConstPt5 = (Real*)VpAlloc("0.5",1);
+	gAllocCount = 0; /* Avobe 2 Reals are not counted. */
+}
+
 
 /*
  *   c = a / b,  remainder = r
  */
-VP_EXPORT(int)
-VpDivd(VP_HANDLE pc, VP_HANDLE pr, VP_HANDLE pa, VP_HANDLE pb,int ixRound)
+VP_EXPORT(VP_HANDLE)
+	VpDiv(VP_HANDLE hc, VP_HANDLE hr, VP_HANDLE ha, VP_HANDLE hb)
 {
-	Real *c = (Real*)pc;
-	Real *r = (Real*)pr;
-	Real *a = (Real*)pa;
-	Real *b = (Real*)pb;
+	Real *c = (Real*)hc;
+	Real *r = (Real*)hr;
+	Real *a = (Real*)ha;
+	Real *b = (Real*)hb;
 
     VP_UINT    word_a, word_b, word_c, word_r;
     VP_UINT    i, n, ind_a, ind_b, ind_c, ind_r;
@@ -1034,7 +844,7 @@ VpDivd(VP_HANDLE pc, VP_HANDLE pr, VP_HANDLE pa, VP_HANDLE pb,int ixRound)
     VP_DIGIT  qb;
 
     VpSetNaN((VP_HANDLE)r);
-    if(!VpIsDefOP(c,a,b,'/')) goto Exit;
+    if(!VpIsNumericOP(c,a,b,'/')) goto Exit;
     if(VpIsZero((VP_HANDLE)a)&&VpIsZero((VP_HANDLE)b)) {
         VpSetNaN((VP_HANDLE)c);
         goto Exit;
@@ -1063,7 +873,9 @@ VpDivd(VP_HANDLE pc, VP_HANDLE pr, VP_HANDLE pa, VP_HANDLE pb,int ixRound)
 
     ind_c = 0;
     ind_r = 1;
-
+	/*
+	   c = a/b
+	*/
     if(word_a >= word_r) goto space_error;
 
     r->frac[0] = 0;
@@ -1185,97 +997,56 @@ carry:
             ++c->frac[ind_r];
         }
     }
+
+space_error:
+	ASSERT(FALSE);
     /* End of operation, now final arrangement */
 out_side:
     c->Prec = word_c;
     c->exponent = a->exponent;
-    if(!AddExponent(c,2))   return 0;
-    if(!AddExponent(c,-(b->exponent))) return 0;
+    if(!AddExponent(c,2))              return hc;
+    if(!AddExponent(c,-(b->exponent))) return hc;
 
     VP_FINITE_SIGN(c,VP_SIGN(a)*VP_SIGN(b));
     VpNmlz(c);            /* normalize c */
     r->Prec = word_r;
     r->exponent = a->exponent;
-    if(!AddExponent(r,1)) return 0;
+    if(!AddExponent(r,1)) return hc;
     VP_SIGN(r) = VP_SIGN(a);
     VpNmlz(r);            /* normalize r(remainder) */
-	if(ixRound>0 &&(c->sign==VP_SIGN_POSITIVE_FINITE||c->sign==VP_SIGN_NEGATIVE_FINITE))
-	{
-		VpLengthRound((VP_HANDLE)c,gRoundMode,ixRound);
-	}
-    goto Exit;
 
-space_error:
-	ASSERT(FALSE);
-	goto out_side;
 Exit:
-    return c->sign;
-}
-
-/*
- *  Input  a = 00000xxxxxxxx En(5 preceeding zeros)
- *  Output a = xxxxxxxx En-5
- */
-int
-VpNmlz(Real *a)
-{
-    VP_UINT ind_a, i;
-
-    if (!VpIsDef((VP_HANDLE)a)) goto NoVal;
-    if (VpIsZero((VP_HANDLE)a)) goto NoVal;
-
-    ind_a = a->Prec;
-    while (ind_a--) {
-        if (a->frac[ind_a]) {
-            a->Prec = ind_a + 1;
-            i = 0;
-            while (a->frac[i] == 0) ++i;        /* skip the first few zeros */
-            if (i) {
-                a->Prec -= i;
-                if (!AddExponent(a, -(int  )i)) return 0;
-                memmove(&a->frac[0], &a->frac[i], a->Prec*sizeof(VP_DIGIT));
-            }
-            return 1;
-        }
-    }
-    /* a is zero(no non-zero digit) */
-    VpSetZero((VP_HANDLE)a, VP_SIGN(a));
-    return 0;
-
-NoVal:
-    a->frac[0] = 0;
-    a->Prec = 1;
-    return 0;
+    return hc;
 }
 
 /*
  *  VpComp = 0  ... if a=b,
- *   Pos  ... a>b,
- *   Neg  ... a<b.
+ *    1  ... a>b,
+ *   -1  ... a<b.
  *   999  ... result undefined(NaN)
  */
 VP_EXPORT(int)
-VpComp(VP_HANDLE pa, VP_HANDLE pb)
+	VpCmp(VP_HANDLE ha, VP_HANDLE hb)
 {
-	Real *a = (Real*)pa;
-	Real *b = (Real*)pb;
+	Real *a = (Real*)ha;
+	Real *b = (Real*)hb;
 
-    int val;
+    int     val;
     VP_UINT mx, ind;
 
 	val = 0;
     if(VpIsNaN((VP_HANDLE)a)||VpIsNaN((VP_HANDLE)b)) return 999;
-    if(!VpIsDef((VP_HANDLE)a)) {
-        if(!VpIsDef((VP_HANDLE)b)) {
-			// a,b ‹¤‚É Infinity
+    if(!VpIsNumeric((VP_HANDLE)a)) {
+        if(!VpIsNumeric((VP_HANDLE)b)) {
+			// a,b both Infinity
 			if(a->sign>0 && b->sign<0) return  1;
 			if(a->sign<0 && b->sign>0) return -1;
-			return 999; // “¯‚¶ Infinity ‚Ì”äŠr‚Í‚Å‚«‚È‚¢B
+			return 999; // unable to compare Infinity
 		}
         if(a->sign>0)   return  1;
         return  -1;
     }
-    if(!VpIsDef((VP_HANDLE)b)) {
+    if(!VpIsNumeric((VP_HANDLE)b)) {
         if(b->sign>0) return  -1;
         return 1;
     }
@@ -1568,13 +1339,13 @@ VpSqrt(VP_HANDLE py, VP_HANDLE px,int ixRound)
         if (y->MaxPrec > y_prec) y->MaxPrec = y_prec;
         if (f->MaxPrec > f_prec) f->MaxPrec = f_prec;
 
-		VpDivd((VP_HANDLE)f, (VP_HANDLE)r, (VP_HANDLE)x, (VP_HANDLE)y,0);    /* f = x/y    */
-		VpAddSub((VP_HANDLE)r, (VP_HANDLE)f, (VP_HANDLE)y, -1,0);      /* r = f - y  */
+		VpDiv((VP_HANDLE)f, (VP_HANDLE)r, (VP_HANDLE)x, (VP_HANDLE)y);    /* f = x/y    */
+		VpAddSub(r, f, y, -1);      /* r = f - y  */
 		f->MaxPrec = r->Prec + 2;
 		if(f->MaxPrec>f_prec)f->MaxPrec = f_prec;
-        VpMult((VP_HANDLE)f, (VP_HANDLE)VpConstPt5, (VP_HANDLE)r,0);   /* f = 0.5*r  */
+        VpMul((VP_HANDLE)f, (VP_HANDLE)VpConstPt5, (VP_HANDLE)r);   /* f = 0.5*r  */
         if(VpIsZero((VP_HANDLE)f))         goto converge;
-        VpAddSub((VP_HANDLE)r, (VP_HANDLE)f, (VP_HANDLE)y, 1,0);       /* r = y + f  */
+        VpAddSub(r, f, y, 1);       /* r = y + f  */
         VpAsgn((VP_HANDLE)y, (VP_HANDLE)r, 1);                             /* y = r      */
         if(f->exponent < prec) goto converge;
     } while(++nr < n);
@@ -1588,7 +1359,7 @@ converge:
 	VpNmlz(y);
 	if(ixRound>0)
 	{
-		VpLengthRound((VP_HANDLE)y,gRoundMode,ixRound);
+		VpLengthRound((VP_HANDLE)y,ixRound);
 	}
 
 Exit:
@@ -1599,32 +1370,6 @@ Exit:
     return y->sign;
 }
 
-
-/*
- *  Rounds up m(plus one to final digit of m).
- */
-int
-VpRdup(Real *m, VP_UINT ind_m)
-{
-    int  carry;
-
-    if (!ind_m) ind_m = m->Prec;
-
-    carry = 1;
-    while (carry > 0 && (ind_m--)) {
-        m->frac[ind_m] += carry;
-        if (m->frac[ind_m] >= BASE) m->frac[ind_m] -= BASE;
-        else                        carry = 0;
-    }
-    if(carry > 0) {        /* Overflow,count exponent and set fraction part be 1  */
-        if (!AddExponent(m, 1)) return 0;
-        m->Prec    = 1;
-        m->frac[0] = 1;
-    } else {
-        VpNmlz(m);
-    }
-    return 1;
-}
 
 /*
  *  y = x - fix(x)
@@ -1741,15 +1486,15 @@ VpPower(Real *y, Real *x, int   n)
         VpAsgn((VP_HANDLE)w1, (VP_HANDLE)x, 1);
         s = 1;
 		while (ss = s, (s += s) <= (VP_UINT)n) {
-		    VpMult((VP_HANDLE)w2, (VP_HANDLE)w1, (VP_HANDLE)w1,0);
+		    VpMul((VP_HANDLE)w2, (VP_HANDLE)w1, (VP_HANDLE)w1);
 			VpAsgn((VP_HANDLE)w1, (VP_HANDLE)w2, 1);
 		}
         n -= (int  )ss;
-        VpMult((VP_HANDLE)w2, (VP_HANDLE)y, (VP_HANDLE)w1,0);
+        VpMul((VP_HANDLE)w2, (VP_HANDLE)y, (VP_HANDLE)w1);
         VpAsgn((VP_HANDLE)y, (VP_HANDLE)w2, 1);
     }
     if(sign < 0) {
-        VpDivd((VP_HANDLE)w1, (VP_HANDLE)w2, (VP_HANDLE)VpConstOne, (VP_HANDLE)y,0);
+        VpDiv((VP_HANDLE)w1, (VP_HANDLE)w2, (VP_HANDLE)VpConstOne, (VP_HANDLE)y);
         VpAsgn((VP_HANDLE)y, (VP_HANDLE)w1, 1);
     }
 
@@ -1759,80 +1504,11 @@ Exit:
     return 1;
 }
 
-
-/*
-   +++++++++++++++++++++++++++++++ Exported functions. +++++++++++++++++++++++++++++++++++++++++++
-*/
-
-/* Sign */
-/* Change sign of a to a>0,a<0 if s = 1,-1 respectively */
-VP_EXPORT(VP_HANDLE) VpSetSign(VP_HANDLE a,int s)    {if((s)>0) ((Real*)a)->sign=(short)Abs((int)((Real*)a)->sign);else ((Real*)a)->sign=-(short)Abs((int)((Real*)a)->sign);return a;}
-VP_EXPORT(int)       VpGetSign(VP_HANDLE a)          {return (int)((Real*)a)->sign;}
-VP_EXPORT(VP_HANDLE) VpRevertSign(VP_HANDLE a,int s) {((Real*)a)->sign=-(((Real*)a)->sign);return a;}
-
-/* 1 */
-VP_EXPORT(VP_HANDLE) VpSetOne(VP_HANDLE a)       {
-	((Real*)a)->Prec=1;
-	((Real*)a)->exponent=1;
-	((Real*)a)->frac[0]=1;
-	((Real*)a)->sign=VP_SIGN_POSITIVE_FINITE;
-	return a;
-}
-
-/* ZEROs */
-VP_EXPORT(int)       VpIsPosZero(VP_HANDLE a)     { return (((Real*)a)->sign==VP_SIGN_POSITIVE_ZERO);}
-VP_EXPORT(int)       VpIsNegZero(VP_HANDLE a)     { return (((Real*)a)->sign==VP_SIGN_NEGATIVE_ZERO);}
-VP_EXPORT(int)       VpIsZero(VP_HANDLE a)        { return (VpIsPosZero(a) || VpIsNegZero(a));}
-VP_EXPORT(VP_HANDLE) VpSetPosZero(VP_HANDLE a)    {((Real*)a)->frac[0]=0;((Real*)a)->Prec=1;((Real*)a)->sign=VP_SIGN_POSITIVE_ZERO;return a;}
-VP_EXPORT(VP_HANDLE) VpSetNegZero(VP_HANDLE a)    {((Real*)a)->frac[0]=0;((Real*)a)->Prec=1;((Real*)a)->sign=VP_SIGN_NEGATIVE_ZERO;return a;}
-VP_EXPORT(VP_HANDLE) VpSetZero(VP_HANDLE a,int s) {(((s)>0)?VpSetPosZero(a):VpSetNegZero(a));return a;}
-
-/* NaN */
-VP_EXPORT(int)       VpIsNaN(VP_HANDLE a)     {return (((Real*)a)->sign==VP_SIGN_NaN);}
-VP_EXPORT(VP_HANDLE) VpSetNaN(VP_HANDLE a)    {((Real*)a)->frac[0]=0;((Real*)a)->Prec=1;((Real*)a)->sign=VP_SIGN_NaN;return a;}
-
-/* Infinity */
-VP_EXPORT(int)       VpIsPosInf(VP_HANDLE a)  { return (((Real*)a)->sign==VP_SIGN_POSITIVE_INFINITE);}
-VP_EXPORT(int)       VpIsNegInf(VP_HANDLE a)  { return (((Real*)a)->sign==VP_SIGN_NEGATIVE_INFINITE);}
-VP_EXPORT(int)       VpIsInf(VP_HANDLE a)     { return (VpIsPosInf(a) || VpIsNegInf(a));}
-VP_EXPORT(int)       VpIsDef(VP_HANDLE a)     { return !((VpIsNaN(a)||VpIsInf(a)));}
-VP_EXPORT(VP_HANDLE) VpSetPosInf(VP_HANDLE a) { (((Real*)a)->frac[0]=0,((Real*)a)->Prec=1,((Real*)a)->sign=VP_SIGN_POSITIVE_INFINITE);return a;}
-VP_EXPORT(VP_HANDLE) VpSetNegInf(VP_HANDLE a) { (((Real*)a)->frac[0]=0,((Real*)a)->Prec=1,((Real*)a)->sign=VP_SIGN_NEGATIVE_INFINITE);return a;}
-VP_EXPORT(VP_HANDLE) VpSetInf(VP_HANDLE a,int s)  { ( ((s)>0)?VpSetPosInf(a):VpSetNegInf(a) );return a;}
-VP_EXPORT(int)       VpHasVal(VP_HANDLE a)    { return ((Real*)a)->frac[0]!=0;}
-VP_EXPORT(int)       VpIsOne(VP_HANDLE a)     { return (((Real*)a)->Prec==1 &&((Real*)a)->frac[0]==1 && ((Real*)a)->exponent==1);}
-
 static char *VpAddString(char *t,char *s)
 {
 	while(*s) *t++ = *s++;
 	*t = 0;
 	return t;
-}
-
-
-/*
- return number of effective digits.
-*/
-VP_EXPORT(VP_UINT) 
-VpEffectiveDigits(VP_HANDLE h)
-{
-	Real *a = (Real*)h;
-
-    if (!VpHasVal((VP_HANDLE)a)) return 16; /* May be OK */
-
-    VP_UINT  ex = a->Prec * (int)BASE_FIG;
-    VP_DIGIT n = BASE1;
-    while ((a->frac[0] / n) == 0) {
-         --ex;
-         n /= 10;
-    }
-	n = a->frac[a->Prec-1];
-	while(n%10==0)
-	{
-		ex--;
-		n /= 10;
-	}
-    return ex;
 }
 
 /*
@@ -1947,6 +1623,118 @@ static VP_HANDLE
 }
 
 /*
+   +++++++++++++++++++++++++++++++ Exported functions. +++++++++++++++++++++++++++++++++++++++++++
+*/
+
+
+VP_EXPORT(int) VpGetRoundMode() {return gRoundMode;}
+VP_EXPORT(int) VpSetRoundMode(int m) {
+	switch(m) {
+	case VP_ROUND_UP:
+	case VP_ROUND_DOWN:
+	case VP_ROUND_HALF_UP:
+	case VP_ROUND_HALF_DOWN:
+	case VP_ROUND_CEIL:
+	case VP_ROUND_FLOOR:
+	case VP_ROUND_HALF_EVEN:
+		gRoundMode = m;
+		break;
+	default: ASSERT(FALSE);
+		break;
+	}
+	return gRoundMode;
+}
+VP_EXPORT(VP_UINT) VpGetDigitSeparationCount() {return gDigitSeparationCount;}
+VP_EXPORT(VP_UINT) VpSetDigitSeparationCount(VP_UINT m) {if(m<=10000) gDigitSeparationCount = m;return gDigitSeparationCount;}
+VP_EXPORT(char)    VpGetDigitSeparator() {return gDigitSeparator;}
+VP_EXPORT(char)    VpSetDigitSeparator(char c) {
+	switch(c) {
+	case '\0':
+	case '+':
+	case '-':
+		return gDigitSeparator;
+	}
+	if(!isdigit(c)) gDigitSeparator = c;
+	return gDigitSeparator;
+}
+VP_EXPORT(char) VpGetDigitLeader() {return gDigitLeader;}
+VP_EXPORT(char) VpSetDigitLeader(char c) {
+	switch(c) {
+	case '\0':
+	case ' ':
+	case '+':
+		gDigitLeader = c;
+		break;
+	default:
+		ASSERT(FALSE);
+	}
+	return gDigitLeader;
+}
+
+/* Sign */
+/* Change sign of a to a>0,a<0 if s = 1,-1 respectively */
+VP_EXPORT(VP_HANDLE) VpSetSign(VP_HANDLE a,int s)    {if((s)>0) ((Real*)a)->sign=(short)Abs((int)((Real*)a)->sign);else ((Real*)a)->sign=-(short)Abs((int)((Real*)a)->sign);return a;}
+VP_EXPORT(int)       VpGetSign(VP_HANDLE a)          {return (int)((Real*)a)->sign;}
+VP_EXPORT(VP_HANDLE) VpRevertSign(VP_HANDLE a,int s) {((Real*)a)->sign=-(((Real*)a)->sign);return a;}
+
+/* 1 */
+VP_EXPORT(VP_HANDLE) VpSetOne(VP_HANDLE a)       {
+	((Real*)a)->Prec=1;
+	((Real*)a)->exponent=1;
+	((Real*)a)->frac[0]=1;
+	((Real*)a)->sign=VP_SIGN_POSITIVE_FINITE;
+	return a;
+}
+
+/* ZEROs */
+VP_EXPORT(int)       VpIsPosZero(VP_HANDLE a)     { return (((Real*)a)->sign==VP_SIGN_POSITIVE_ZERO);}
+VP_EXPORT(int)       VpIsNegZero(VP_HANDLE a)     { return (((Real*)a)->sign==VP_SIGN_NEGATIVE_ZERO);}
+VP_EXPORT(int)       VpIsZero(VP_HANDLE a)        { return (VpIsPosZero(a) || VpIsNegZero(a));}
+VP_EXPORT(VP_HANDLE) VpSetPosZero(VP_HANDLE a)    {((Real*)a)->frac[0]=0;((Real*)a)->Prec=1;((Real*)a)->sign=VP_SIGN_POSITIVE_ZERO;return a;}
+VP_EXPORT(VP_HANDLE) VpSetNegZero(VP_HANDLE a)    {((Real*)a)->frac[0]=0;((Real*)a)->Prec=1;((Real*)a)->sign=VP_SIGN_NEGATIVE_ZERO;return a;}
+VP_EXPORT(VP_HANDLE) VpSetZero(VP_HANDLE a,int s) {(((s)>0)?VpSetPosZero(a):VpSetNegZero(a));return a;}
+
+/* NaN */
+VP_EXPORT(int)       VpIsNaN(VP_HANDLE a)     {return (((Real*)a)->sign==VP_SIGN_NaN);}
+VP_EXPORT(VP_HANDLE) VpSetNaN(VP_HANDLE a)    {((Real*)a)->frac[0]=0;((Real*)a)->Prec=1;((Real*)a)->sign=VP_SIGN_NaN;return a;}
+
+/* Infinity */
+VP_EXPORT(int)       VpIsPosInf(VP_HANDLE a)  { return (((Real*)a)->sign==VP_SIGN_POSITIVE_INFINITE);}
+VP_EXPORT(int)       VpIsNegInf(VP_HANDLE a)  { return (((Real*)a)->sign==VP_SIGN_NEGATIVE_INFINITE);}
+VP_EXPORT(int)       VpIsInf(VP_HANDLE a)     { return (VpIsPosInf(a) || VpIsNegInf(a));}
+VP_EXPORT(VP_HANDLE) VpSetPosInf(VP_HANDLE a) { (((Real*)a)->frac[0]=0,((Real*)a)->Prec=1,((Real*)a)->sign=VP_SIGN_POSITIVE_INFINITE);return a;}
+VP_EXPORT(VP_HANDLE) VpSetNegInf(VP_HANDLE a) { (((Real*)a)->frac[0]=0,((Real*)a)->Prec=1,((Real*)a)->sign=VP_SIGN_NEGATIVE_INFINITE);return a;}
+VP_EXPORT(VP_HANDLE) VpSetInf(VP_HANDLE a,int s)  { ( ((s)>0)?VpSetPosInf(a):VpSetNegInf(a) );return a;}
+VP_EXPORT(int)       VpIsOne(VP_HANDLE a)     { return (((Real*)a)->Prec==1 &&((Real*)a)->frac[0]==1 && ((Real*)a)->exponent==1);}
+VP_EXPORT(VP_UINT)   VpCapacity(VP_HANDLE h)  { return ((Real*)h)->MaxPrec*BASE_FIG;}
+
+/*
+ return number of effective digits.
+*/
+VP_EXPORT(VP_UINT)
+	VpEffectiveDigits(VP_HANDLE h)
+{
+	Real *a = (Real*)h;
+
+    if (!VpHasVal((VP_HANDLE)a)) return 0;
+
+    VP_UINT  ex = a->Prec * (int)BASE_FIG;
+    VP_DIGIT n = BASE1;
+    while ((a->frac[0] / n) == 0) {
+         --ex;
+         n /= 10;
+    }
+	n = a->frac[a->Prec-1];
+	while(n%10==0)
+	{
+		ex--;
+		n /= 10;
+	}
+    return ex;
+}
+
+
+/*
  * Allocates variable.
  * [Input]
  *   szVal ... value(string) assigned. 
@@ -1957,7 +1745,7 @@ static VP_HANDLE
  *
  * [Returns]
  *   Pointer to the newly allocated variable, or
- *   ERROR code is returned if memory allocation is failed,or any error including 
+ *   ERROR code is returned if memory allocation is failed,or any error. 
  */
 VP_EXPORT(VP_HANDLE)
 	VpAlloc(char *szVal,VP_UINT mx)
@@ -1974,28 +1762,31 @@ VP_EXPORT(VP_HANDLE)
        /* at least mx digits. */
        /* szVal==NULL ==> allocate zero value. */
        vp = VpAllocReal(mx);
-	   if(VpBadHandle(vp)) return (VP_HANDLE)vp;
+	   if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
        VpSetZero((VP_HANDLE)vp,1);    /* initialize vp to zero. */
        return (VP_HANDLE)vp;
     }
+
+	/* skip leading spaces */
+	while(isspace(*szVal)) szVal++;
 
     /* Check on Inf & NaN */
     if (StrCmp(szVal, SZ_PINF) == 0 ||
         StrCmp(szVal, SZ_INF)  == 0 ) {
         vp = VpAllocReal(1);
-	    if(VpBadHandle(vp)) return (VP_HANDLE)vp;
+	    if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
 		VpSetPosInf((VP_HANDLE)vp);
         return (VP_HANDLE)vp;
     }
     if (StrCmp(szVal, SZ_NINF) == 0) {
         vp = VpAllocReal(1);
-	    if(VpBadHandle(vp)) return (VP_HANDLE)vp;
+	    if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
         VpSetNegInf((VP_HANDLE)vp);
         return (VP_HANDLE)vp;
     }
     if (StrCmp(szVal, SZ_NaN) == 0) {
         vp = VpAllocReal(1);
-	    if(VpBadHandle(vp)) return (VP_HANDLE)vp;
+	    if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
         VpSetNaN((VP_HANDLE)vp);
         return (VP_HANDLE)vp;
     }
@@ -2054,8 +1845,21 @@ VP_EXPORT(VP_HANDLE)
 
     mx = Max(ni + nf + 1, mx);
     vp = VpAllocReal(mx);
-	if(VpBadHandle(vp)) return (VP_HANDLE)vp;
+	if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
     return VpCtoV(vp, sign, szVal, ni, &szVal[ipf], nf, signe, &szVal[ipe], ne);
+}
+
+
+VP_EXPORT(VP_HANDLE)
+	VpClone(VP_HANDLE p)
+{
+	Real *r = (Real*)p;
+    ASSERT(p != 0);
+	if(p==NULL) return (VP_HANDLE)VP_ERROR_BAD_HANDLE;
+	Real *t = (Real*)VpAllocReal(r->MaxPrec*BASE_FIG);
+	if(t==NULL) return (VP_HANDLE)VP_ERROR_MEMORY_ALLOCATION;
+	memcpy(t,r,r->Size);
+    return (VP_HANDLE)t;
 }
 
 /*
@@ -2066,7 +1870,7 @@ VpFree(VP_HANDLE *p)
 {
 	if( p==NULL) return;
 	if(*p==NULL) return;
-	if(VpBadHandle(*p)) return;
+	if(VpIsInvalid(*p)) return;
 	free((void *)(*p));
 	*p = NULL;
 	gAllocCount--; /* Count down */
@@ -2091,7 +1895,7 @@ VP_EXPORT(int)
 	Real *a = (Real *)h;
     VP_UINT i, nc, nd, ZeroSup;
     VP_DIGIT m, e, nn;
-	if(VpBadHandle(h))           return fprintf(fp,"VpPrintF():Invalid handle(%llu)",(unsigned long long)h);
+	if(VpIsInvalid(h))           return fprintf(fp,"VpPrintF():Invalid handle(%llu)",(unsigned long long)h);
     /* Check if NaN & Inf. */
     if(VpIsNaN((VP_HANDLE)a))    return fprintf(fp,SZ_NaN);
     if(VpIsPosInf((VP_HANDLE)a)) return fprintf(fp,SZ_INF);
@@ -2107,8 +1911,8 @@ VP_EXPORT(int)
         fprintf(fp, "-");
         ++nc;
     } else {
-		if(gDigitsAlign!=0) {
-		    nc += fprintf(fp, "%c",gDigitsAlign);
+		if(gDigitLeader!=0) {
+		    nc += fprintf(fp, "%c",gDigitLeader);
 		}
 	}
     nc += fprintf(fp, "0.");
@@ -2155,7 +1959,7 @@ VpStringLengthF(VP_HANDLE h)
     VP_UINT   nc;
 
     if(vp == NULL)   return 0;
-    if(!VpIsDef((VP_HANDLE)vp)) return 32; /* not sure,may be OK */
+    if(!VpIsNumeric((VP_HANDLE)vp)) return 32; /* not sure,may be OK */
 
     nc = BASE_FIG*(vp->Prec + 1)+2;
     ex = vp->exponent;
@@ -2179,7 +1983,7 @@ VpStringLengthE(VP_HANDLE h)
 	Real *vp = (Real*)h;
     VP_UINT   nc;
     if(vp == NULL)   return 0;
-    if(!VpIsDef((VP_HANDLE)vp)) return 32; /* not sure,may be OK */
+    if(!VpIsNumeric((VP_HANDLE)vp)) return 32; /* not sure,may be OK */
     nc = BASE_FIG*(vp->Prec + 2)+6; /* 3: sign + exponent chars */
 	if(gDigitSeparationCount>0) nc += (nc+gDigitSeparationCount-1)/gDigitSeparationCount;
     return nc;
@@ -2196,7 +2000,7 @@ VP_EXPORT(char *)
 	Real *a   = (Real *)h;
     VP_UINT i, nd, ZeroSup;
     VP_DIGIT m, e, nn;
-	if(VpBadHandle(h))  {
+	if(VpIsInvalid(h))  {
 		VpAddString(sz,"?? Not VP??");
 		return sz;
 	}
@@ -2213,8 +2017,8 @@ VP_EXPORT(char *)
 	if(VP_SIGN(a) < 0) {
         psz = VpAddString(psz, "-");
     } else {
-		if(gDigitsAlign!=0) {
-			*psz++ = gDigitsAlign;
+		if(gDigitLeader!=0) {
+			*psz++ = gDigitLeader;
 		}
 	}
 	psz = VpAddString(psz,"0.");
@@ -2266,7 +2070,7 @@ VP_EXPORT(char*)
     char     *psz = sz;
     int       ex;
 
-	if(VpBadHandle(h))  {
+	if(VpIsInvalid(h))  {
 		VpAddString(sz,"?? Not VP??");
 		return sz;
 	}
@@ -2280,8 +2084,8 @@ VP_EXPORT(char*)
 	if(VP_SIGN(a) < 0) {
         psz = VpAddString(psz, "-");
     } else {
-		if(gDigitsAlign!=0) {
-			*psz++ = gDigitsAlign;
+		if(gDigitLeader!=0) {
+			*psz++ = gDigitLeader;
 		}
 	}
 
@@ -2301,7 +2105,7 @@ VP_EXPORT(char*)
     for(i=0;i < n;++i) {
        --ex;
        if(i==0 && ex >= 0) {
-           sprintfs(psz, "%lu", (unsigned long)a->frac[i]);
+           sprintf(psz, "%lu", (unsigned long)a->frac[i]);
            psz += strlen(psz);
        } else {
            m = BASE1;
@@ -2373,7 +2177,7 @@ VP_EXPORT(char*)
  *  V  ... LHSV
  */
 VP_EXPORT(VP_HANDLE)
- VpAsgn(VP_HANDLE C,VP_HANDLE A, int isw)
+	VpAsgn(VP_HANDLE C,VP_HANDLE A, int isw)
 {
     VP_UINT n;
 	Real *a = (Real*)A;
@@ -2405,7 +2209,13 @@ VP_EXPORT(VP_HANDLE)
 
 
 VP_EXPORT(VP_HANDLE)
-	VpLengthRound(VP_HANDLE p, int f, int nf)
+	VpLengthRound(VP_HANDLE p, int ixRound)
+{
+	return VpLengthRound2(p,ixRound,VpGetRoundMode());
+}
+
+VP_EXPORT(VP_HANDLE)
+	VpLengthRound2(VP_HANDLE p, int ixRound,int mode)
 /*
  * Round from the left hand side of the digits.
  */
@@ -2414,12 +2224,17 @@ VP_EXPORT(VP_HANDLE)
     VP_DIGIT v;
     if (!VpHasVal((VP_HANDLE)y)) return p; /* Unable to round */
     v = y->frac[0];
-    nf -= VP_EXPONENT(y)*(int)BASE_FIG;
-    while ((v /= 10) != 0) nf--;
-    nf += (int)BASE_FIG-1;
-    return VpMidRound(p,f,nf);
+    ixRound -= VP_EXPONENT(y)*(int)BASE_FIG;
+    while ((v /= 10) != 0) ixRound--;
+    ixRound += (int)BASE_FIG-1;
+    return VpScaleRound2(p,ixRound,mode);
 }
 
+VP_EXPORT(VP_HANDLE)
+	VpScaleRound(VP_HANDLE p, int ixRound)
+{
+	return VpScaleRound2(p,ixRound,VpGetRoundMode());
+}
 
 /*
  *
@@ -2427,11 +2242,11 @@ VP_EXPORT(VP_HANDLE)
  *
  */
 VP_EXPORT(VP_HANDLE)
-VpMidRound(VP_HANDLE p, int f, int nf)
+	VpScaleRound2(VP_HANDLE p, int ixRound,int mode)
 /*
  * Round reletively from the decimal point.
- *    f: rounding mode
- *   nf: digit location to round from the the decimal point.
+ *   ixRound: digit location to round from the the decimal point.
+ *      mode: rounding mode
  */
 {
 	Real *y = (Real*)p;
@@ -2442,23 +2257,23 @@ VpMidRound(VP_HANDLE p, int f, int nf)
 
     if (!VpHasVal((VP_HANDLE)y)) return p; /* Unable to round */
 
-    nf += y->exponent * (int)BASE_FIG;
+    ixRound += y->exponent * (int)BASE_FIG;
     exptoadd=0;
-    if (nf < 0) {
+    if (ixRound < 0) {
 		/* rounding position too left(large). */
-		if((f!=VP_ROUND_CEIL) && (f!=VP_ROUND_FLOOR)) {
+		if((mode!=VP_ROUND_CEIL) && (mode!=VP_ROUND_FLOOR)) {
 			VpSetZero((VP_HANDLE)y,VP_SIGN(y)); /* truncate everything */
 			return p;
 		}
-		exptoadd = -nf;
-		nf = 0;
+		exptoadd = -ixRound;
+		ixRound = 0;
     }
 
-    ix = nf / (int )BASE_FIG;
+    ix = ixRound / (int )BASE_FIG;
     if ((VP_UINT)ix >= y->Prec) return p;  /* rounding position too right(small). */
     v = y->frac[ix];
 
-    ioffset = nf - ix*(int )BASE_FIG;
+    ioffset = ixRound - ix*(int )BASE_FIG;
     n = (int )BASE_FIG - ioffset - 1;
     for (shifter=1,i=0; i<n; ++i) shifter *= 10;
 
@@ -2494,7 +2309,21 @@ VpMidRound(VP_HANDLE p, int f, int nf)
     /* drop digits after pointed digit */
     memset(y->frac+ix+1, 0, (y->Prec - (ix+1)) * sizeof(int ));
 
-    switch(f)
+	switch(mode) {
+	case VP_ROUND_UP:
+	case VP_ROUND_DOWN:
+	case VP_ROUND_HALF_UP:
+	case VP_ROUND_HALF_DOWN:
+	case VP_ROUND_CEIL:
+	case VP_ROUND_FLOOR:
+	case VP_ROUND_HALF_EVEN:
+		break;
+	default: ASSERT(FALSE);
+		mode = VpGetRoundMode();
+		break;
+	}
+
+    switch(mode)
 	{
     case VP_ROUND_DOWN: /* Truncate */
          break;
@@ -2528,6 +2357,8 @@ VpMidRound(VP_HANDLE p, int f, int nf)
 			}
 		}
 		break;
+	default:
+		break;
     }
 
     for (i=0; i<=n; ++i) div *= 10;
@@ -2559,6 +2390,144 @@ VpMidRound(VP_HANDLE p, int f, int nf)
     }
 	return p;
 }
+
+/*
+   c = a+b
+*/
+VP_EXPORT(VP_HANDLE)
+	VpAdd(VP_HANDLE c,VP_HANDLE a,VP_HANDLE b)
+{
+	return VpAddSub((Real*)c,(Real*)a,(Real*)b,1);
+}
+
+/*
+   c = a-b
+*/
+VP_EXPORT(VP_HANDLE)
+	VpSub(VP_HANDLE c,VP_HANDLE a,VP_HANDLE b)
+{
+	return VpAddSub((Real*)c,(Real*)a,(Real*)b,-1);
+}
+
+
+/*
+ * must be  MaxPrec(c) > Prec(a)+Prec(b) , or VP_ERROR_BAD_LEFT is returned.
+ *
+ *       c = a * b , Where a = a0a1a2 ... an
+ *             b = b0b1b2 ... bm
+ *             c = c0c1c2 ... cl
+ *          a0 a1 ... an   * bm
+ *       a0 a1 ... an   * bm-1
+ *         .   .    .
+ *       .   .   .
+ *        a0 a1 .... an    * b0
+ *      +_____________________________
+ *     c0 c1 c2  ......  cl
+ *     nc      <---|
+ *     MaxAB |--------------------|
+ */
+VP_EXPORT(VP_HANDLE)
+	VpMul(VP_HANDLE hc, VP_HANDLE ha, VP_HANDLE hb)
+{
+	Real *c = (Real*)hc;
+	Real *a = (Real*)ha;
+	Real *b = (Real*)hb;
+
+    VP_UINT   MxIndA, MxIndB, MxIndAB, MxIndC;
+    VP_UINT   ind_c, i, ii, nc;
+    VP_UINT   ind_as, ind_ae, ind_bs;
+    VP_DIGIT  carry;
+    VP_DIGIT  s;
+
+    if(!VpIsNumericOP(c,a,b,'*')) goto Exit; /* No significant digit */
+
+    if(VpIsZero((VP_HANDLE)a) || VpIsZero((VP_HANDLE)b)) {
+        /* at least a or b is zero */
+        VpSetZero((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b));
+        goto Exit; /* 0: 1 significant digit */
+    }
+
+    if(VpIsOne((VP_HANDLE)a)) {
+        VpAsgn((VP_HANDLE)c, (VP_HANDLE)b, VP_SIGN(a));
+        goto Exit;
+    }
+    if(VpIsOne((VP_HANDLE)b)) {
+        VpAsgn((VP_HANDLE)c, (VP_HANDLE)a, VP_SIGN(b));
+        goto Exit;
+    }
+    if((b->Prec) >(a->Prec)) {
+        /* Adjust so that digits(a)>digits(b) */
+        Real *w = a;
+        a = b;
+        b = w;
+    }
+    MxIndA = a->Prec - 1;
+    MxIndB = b->Prec - 1;
+    MxIndC = c->MaxPrec - 1;
+    MxIndAB = a->Prec + b->Prec - 1;
+
+    if(MxIndC < MxIndAB) {    /* The Max. prec. of c < Prec(a)+Prec(b) */
+		ASSERT(FALSE);
+		return VP_ERROR_BAD_LEFT;
+	}
+
+    /* set LHSV c info */
+
+    c->exponent = a->exponent;    /* set exponent */
+    if(!AddExponent(c,b->exponent)) {
+		goto Exit;
+    }
+
+    VP_FINITE_SIGN(c,VP_SIGN(a)*VP_SIGN(b));    /* set sign  */
+    carry = 0;
+    nc = ind_c = MxIndAB;
+    memset(c->frac, 0, (nc + 1) * sizeof(int ));        /* Initialize c  */
+    c->Prec = nc + 1;        /* set precision */
+    for(nc = 0; nc < MxIndAB; ++nc, --ind_c) {
+        if(nc < MxIndB) {    /* The left triangle of the Fig. */
+            ind_as = MxIndA - nc;
+            ind_ae = MxIndA;
+            ind_bs = MxIndB;
+        } else if(nc <= MxIndA) {    /* The middle rectangular of the Fig. */
+            ind_as = MxIndA - nc;
+            ind_ae = MxIndA -(nc - MxIndB);
+            ind_bs = MxIndB;
+        } else if(nc > MxIndA) {    /*  The right triangle of the Fig. */
+            ind_as = 0;
+            ind_ae = MxIndAB - nc - 1;
+            ind_bs = MxIndB -(nc - MxIndA);
+        }
+
+        for(i = ind_as; i <= ind_ae; ++i) {
+            s = a->frac[i] * b->frac[ind_bs--];
+            carry = (int )(s / BASE);
+            s -= carry * BASE;
+            c->frac[ind_c] += (int )s;
+            if(c->frac[ind_c] >= BASE) {
+                s = c->frac[ind_c] / BASE;
+                carry += (int )s;
+                c->frac[ind_c] -= (int )(s * BASE);
+            }
+            if(carry) {
+                ii = ind_c;
+                while(ii-- > 0) {
+                    c->frac[ii] += carry;
+                    if(c->frac[ii] >= BASE) {
+                        carry = c->frac[ii] / BASE;
+                        c->frac[ii] -= (carry * BASE);
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+Exit:
+	VpNmlz(c);
+    return hc;
+}
+
 
 #ifdef _DEBUG
 void DbgAssert(int  f,char *file,int line)

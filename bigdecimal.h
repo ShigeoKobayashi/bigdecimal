@@ -1,6 +1,6 @@
 /*
  *
- * BigDecimal(Variable decimal precision) extension library.
+ * BigDecimal: Variable precision decimal arithmetic C/C++ library.
  *
  * Copyright(C) 2012 by Shigeo Kobayashi(shigeo@tinyforest.jp)
  *
@@ -56,8 +56,6 @@ __stdcall __cdecl and C#
 #define VP_EXPORT(t) __attribute__((visibility ("default")))  t
 #endif /**** LINUX ****/
 
-
-
 #if defined(__cplusplus)
 extern "C" {
 #endif
@@ -66,7 +64,7 @@ extern "C" {
 /* VP_HANDLE,VP_DIGIT,VP_UINT must be unsigned. */
 /***/
 #define VP_HANDLE  unsigned long long  /* This is actually an address for structure Real. */
-#define VP_DIGIT   unsigned long       /* Fraction part array    */
+#define VP_DIGIT   unsigned long       /* Fraction part array (can be 64-bit:unsigned long long)   */
 #define VP_UINT    size_t              /* Common unsigned part   */
 
 /*
@@ -104,14 +102,16 @@ typedef struct {
 #define VP_SIGN_POSITIVE_INFINITE  3 /* Positive infinite number */
 #define VP_SIGN_NEGATIVE_INFINITE -3 /* Negative infinite number */
 
-#define VpBadHandle(h)  (((VP_HANDLE)h)<100)
-#define VpIsHandle(h)   (((VP_HANDLE)h)>100)
+#define VpIsInvalid(h)  (((VP_HANDLE)h)<100)
+#define VpIsValid(h)    (((VP_HANDLE)h)>100)
+#define VpIsNumeric(h)  (!((VpIsNaN(h)||VpIsInf(h))))
 
 /* ERROR CODES */
 #define VP_ERROR_BAD_STRING         1
 #define VP_ERROR_BAD_HANDLE         2
 #define VP_ERROR_MEMORY_ALLOCATION  3
-
+#define VP_ERROR_NOT_CONVERGED      4  /* Iteration not converged, */
+#define VP_ERROR_BAD_LEFT           9  /* Bad left */
 
 /*
  *  NaN & Infinity
@@ -121,59 +121,35 @@ typedef struct {
 #define SZ_PINF "+Infinity"
 #define SZ_NINF "-Infinity"
 
-/* Exception codes */
-#define VP_EXCEPTION_ALL        ((unsigned short)0x00FF)
-#define VP_EXCEPTION_INFINITY   ((unsigned short)0x0001)
-#define VP_EXCEPTION_NaN        ((unsigned short)0x0002)
-#define VP_EXCEPTION_UNDERFLOW  ((unsigned short)0x0004)
-#define VP_EXCEPTION_OVERFLOW   ((unsigned short)0x0001) /* 0x0008) */
-#define VP_EXCEPTION_ZERODIVIDE ((unsigned short)0x0010)
-
-/* Following 2 exceptions cann't controlled by user */
-#define VP_EXCEPTION_OP         ((unsigned short)0x0020)
-#define VP_EXCEPTION_MEMORY     ((unsigned short)0x0040)
-
-/* Computation mode */
-#define VP_ROUND_MODE            ((unsigned short)0x0100)
+/* Round mode */
 
 #define VP_ROUND_UP         1
 #define VP_ROUND_DOWN       2
-#define VP_ROUND_HALF_UP    3
+#define VP_ROUND_HALF_UP    3  /* Default mode */
 #define VP_ROUND_HALF_DOWN  4
 #define VP_ROUND_CEIL       5
 #define VP_ROUND_FLOOR      6
 #define VP_ROUND_HALF_EVEN  7
 
-
-/*
-  ERROR codes
-*/
-#define VP_ERROR_NOT_CONVERGED -9   // Iteration not converged,
-#define VP_ERROR_BAD_LEFT      -99  // ¶•Ó‚ª•s³.
-
-
-
 VP_EXPORT(VP_HANDLE) VpAlloc(char *szVal,VP_UINT mx);
 VP_EXPORT(int)       VpAllocCount(); /* returns VP_HANDLE allocation count */
+VP_EXPORT(VP_HANDLE) VpClone(VP_HANDLE p);
 VP_EXPORT(void)      VpFree(VP_HANDLE *p);
 VP_EXPORT(int)       VpPrintE(FILE *fp, VP_HANDLE h);
 VP_EXPORT(VP_UINT)   VpEffectiveDigits(VP_HANDLE h);
+VP_EXPORT(VP_UINT)   VpCapacity(VP_HANDLE h);
 VP_EXPORT(VP_UINT)   VpStringLengthE(VP_HANDLE h);
 VP_EXPORT(VP_UINT)   VpStringLengthF(VP_HANDLE h);
 VP_EXPORT(char *)    VpToStringE(VP_HANDLE h,char *sz);
 VP_EXPORT(char *)    VpToStringF(VP_HANDLE h,char *sz);
 VP_EXPORT(int)  	 VpExponent(VP_HANDLE h);
-VP_EXPORT(VP_HANDLE) VpAsgn(VP_HANDLE C, VP_HANDLE A, int isw);
-VP_EXPORT(VP_HANDLE) VpMidRound(VP_HANDLE p, int f, int nf);
-VP_EXPORT(VP_HANDLE) VpLengthRound(VP_HANDLE p, int f, int nf);
-
 
 
 /* Sign */
 /* Change sign of a to a>0,a<0 if s = 1,-1 respectively */
 VP_EXPORT(VP_HANDLE) VpSetSign(VP_HANDLE a,int s);
 VP_EXPORT(int)       VpGetSign(VP_HANDLE a);
-VP_EXPORT(VP_HANDLE) VpRevertSign(VP_HANDLE a,int s);
+VP_EXPORT(VP_HANDLE) VpRevertSign(VP_HANDLE a,int s); /* Negate */
 
 /* 1 */
 VP_EXPORT(int)       VpIsOne(VP_HANDLE a);
@@ -195,21 +171,29 @@ VP_EXPORT(VP_HANDLE) VpSetNaN(VP_HANDLE a);
 VP_EXPORT(int)       VpIsPosInf(VP_HANDLE a);
 VP_EXPORT(int)       VpIsNegInf(VP_HANDLE a);
 VP_EXPORT(int)       VpIsInf(VP_HANDLE a);
-VP_EXPORT(int)       VpIsDef(VP_HANDLE a);
 VP_EXPORT(VP_HANDLE) VpSetPosInf(VP_HANDLE a);
 VP_EXPORT(VP_HANDLE) VpSetNegInf(VP_HANDLE a);
 VP_EXPORT(VP_HANDLE) VpSetInf(VP_HANDLE a,int s);
-VP_EXPORT(int)       VpHasVal(VP_HANDLE a);
-VP_EXPORT(int)       VpGetRoundMode();
-VP_EXPORT(int)       VpSetRoundMode(int m);
+
 VP_EXPORT(VP_UINT)   VpGetDigitSeparationCount();
 VP_EXPORT(VP_UINT)   VpSetDigitSeparationCount(VP_UINT m);
 VP_EXPORT(char)      VpGetDigitSeparator();
 VP_EXPORT(char)      VpSetDigitSeparator(char c);
-VP_EXPORT(char)      VpGetDigitsAlign();
-VP_EXPORT(char)      VpSetDigitsAlign(char c);
+VP_EXPORT(char)      VpGetDigitLeader();
+VP_EXPORT(char)      VpSetDigitLeader(char c);
 
-
+VP_EXPORT(int)       VpGetRoundMode();
+VP_EXPORT(int)       VpSetRoundMode(int m);
+VP_EXPORT(VP_HANDLE) VpAdd(VP_HANDLE c,VP_HANDLE a,VP_HANDLE b);
+VP_EXPORT(VP_HANDLE) VpSub(VP_HANDLE c,VP_HANDLE a,VP_HANDLE b);
+VP_EXPORT(VP_HANDLE) VpMul(VP_HANDLE c,VP_HANDLE a,VP_HANDLE b);
+VP_EXPORT(VP_HANDLE) VpDiv(VP_HANDLE c, VP_HANDLE r, VP_HANDLE a, VP_HANDLE b);
+VP_EXPORT(int)       VpCmp(VP_HANDLE a, VP_HANDLE b);
+VP_EXPORT(VP_HANDLE) VpAsgn(VP_HANDLE C, VP_HANDLE A, int isw);
+VP_EXPORT(VP_HANDLE) VpScaleRound(VP_HANDLE p, int ixRound);
+VP_EXPORT(VP_HANDLE) VpLengthRound(VP_HANDLE p, int ixRound);
+VP_EXPORT(VP_HANDLE) VpScaleRound2(VP_HANDLE p, int ixRound,int mode);
+VP_EXPORT(VP_HANDLE) VpLengthRound2(VP_HANDLE p, int ixRound,int mode);
 
 
 
