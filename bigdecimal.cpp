@@ -8,6 +8,12 @@
 
 #include "stdafx.h"
 
+/*
+ Maximum iteration count for VpSqrt() etc.
+*/
+static VP_UINT  gMaxIter   = 10000UL;
+static VP_UINT  gIterCount = 0; /* Recent iteration count */
+
 /* following constants are computed in VpInit()    */
 static VP_UINT  BASE_FIG = 4;        /* =log10(BASE)  */
 static VP_DIGIT BASE     = 10000L;   /* Base value(value must be 10**BASE_FIG) */
@@ -25,7 +31,7 @@ static int     gRoundMode      = VP_ROUND_HALF_UP; /* Default rounding mode */
 /* Print options for VP_HANDLE */
 static VP_UINT gDigitSeparationCount = 10;
 static char    gDigitSeparator = ' ';
-static char    gDigitLeader    = '+'; /* must be 0 or 
+static char    gDigitLeader    = ' '; /* must be 0 or 
 				 				      '+' ... '+' is printed for posotive number.
 				 				      ' ' ...  ' ' is printed for positive number.
 			 						  */
@@ -36,25 +42,56 @@ static char    gDigitLeader    = '+'; /* must be 0 or
    ------------------------------------------------
 */
 static void VpInit();
-class CInitializer
+class VpInitializer
 {
 public:
-	CInitializer()
+	VpInitializer()
 	{
 #ifdef _DEBUG
-		printf("\n------CInitializer()-----\n");
+		printf("\n------VpInitializer()-----\n");
 #endif
 		VpInit();
 	};
-	~CInitializer()
+	~VpInitializer()
 	{
 #ifdef _DEBUG
-		printf("~CInitializer: gAllocCount=%d\n",gAllocCount);
+		printf("~VpInitializer: gAllocCount=%d\n",gAllocCount);
 #endif
 	};
 };
-static CInitializer *gInit = new CInitializer();
+static VpInitializer *gInit = new VpInitializer();
 // ---------------------------------------------------
+
+/*
+  Exception handler.
+*/
+static VP_EXCEPTION_HANDLER *gpExceptionHandler = NULL;
+VP_EXPORT(void)
+	VpSetExceptionHandler(VP_EXCEPTION_HANDLER *pf)
+{
+	gpExceptionHandler = pf;
+}
+VP_EXPORT(VP_UINT) VpGetUserArea(VP_HANDLE h)
+{
+	return ((Real*)h)->UserArea;
+}
+
+VP_EXPORT(void   ) VpSetUserArea(VP_HANDLE h,VP_UINT userarea)
+{
+	((Real*)h)->UserArea = userarea;
+}
+
+#define VpException(a,b) VpExceptionHandler(a,b,__FILE__,__LINE__)
+
+static VP_HANDLE
+	VpExceptionHandler(VP_HANDLE h,const char *pszMsg,const char *pszFile,int line)
+{
+#ifdef _DEBUG
+	printf("VpException: message=%s at %d (%s)\n",pszMsg,line,pszFile);
+#endif
+	if(gpExceptionHandler!=NULL) (*gpExceptionHandler)(h,pszMsg);
+	return h;
+}
 
 static int
 	VpHasVal(VP_HANDLE a)
@@ -70,12 +107,16 @@ static int
 static Real *
 	VpAllocReal(VP_UINT m)
 {
-	int    mx  = (m+BASE_FIG-1)/BASE_FIG + 1; 
+	int    mx  = (m+BASE_FIG-1)/BASE_FIG + 2; 
 	VP_UINT s  = sizeof(Real)+mx*sizeof(VP_DIGIT);
 	Real  *p   = (Real*)malloc(s);
 
 	ASSERT(p!=NULL);
-	if(!p) return (Real *)VP_ERROR_MEMORY_ALLOCATION;
+	if(!p) {
+		char sz[128];
+		sprintf(sz,"Memory allocation error(%lu)!",(unsigned long)mx);
+		return (Real *)VpException(VP_ERROR_MEMORY_ALLOCATION,sz);
+	}
 	memset(p,0,s);
 	p->MaxPrec = mx;
 	p->Size    = s;
@@ -110,11 +151,11 @@ static int
 
 /* Overflow/Underflow ==> Raise exception or returns 0 */
 underflow:
-    VpSetZero((VP_HANDLE)a,VP_SIGN(a));
+    VpException(VpSetZero((VP_HANDLE)a,VP_SIGN(a)),"Exponent underflow!");
     return 0;
 
 overflow:
-    VpSetInf((VP_HANDLE)a,VP_SIGN(a));
+    VpException(VpSetInf((VP_HANDLE)a,VP_SIGN(a)),"Exponent overflow!");;
     return 0;
 }
 
@@ -128,8 +169,8 @@ static VP_HANDLE
     VP_UINT ind_a, i;
 
     if (!VpIsNumeric((VP_HANDLE)a)) goto NoVal;
-    if (VpIsZero((VP_HANDLE)a)) goto NoVal;
 
+	/* Not NaN nor Inf */
     ind_a = a->Prec;
     while (ind_a--) {
         if (a->frac[ind_a]) {
@@ -180,16 +221,22 @@ static int
     return 1;
 }
 
-
+static void VpInternalRound2(Real *c, int ixDigit, VP_DIGIT vPrev, VP_DIGIT v,int RoundMode);
 static void
 	VpInternalRound(Real *c, int ixDigit, VP_DIGIT vPrev, VP_DIGIT v)
+{
+	VpInternalRound2(c,ixDigit,vPrev,v,VpGetRoundMode());
+}
+
+static void
+	VpInternalRound2(Real *c, int ixDigit, VP_DIGIT vPrev, VP_DIGIT v,int RoundMode)
 {
     int f = 0;
 
     if (!v) goto Exit;
 
     v /= BASE1;
-    switch (VpGetRoundMode())
+    switch (RoundMode)
 	{
     case VP_ROUND_DOWN:
 		break;
@@ -233,9 +280,15 @@ Exit:
 static int 
 	VpIsNumericOP(Real *c,Real *a,Real *b,char op)
 {
+	if((VP_HANDLE)c==(VP_HANDLE)a ||
+	   (VP_HANDLE)c==(VP_HANDLE)b) {
+        VpException(VpSetNaN((VP_HANDLE)c),"Invalid operation(input==output)!");
+        return 0;
+	}
+
     if(VpIsNaN((VP_HANDLE)a) || VpIsNaN((VP_HANDLE)b)) {
         /* at least a or b is NaN */
-        VpSetNaN((VP_HANDLE)c);
+        VpException(VpSetNaN((VP_HANDLE)c),"Operation includes NaN!");
         return 0;
     }
 
@@ -247,36 +300,36 @@ static int
             case '+': /* + */
                 if(VP_SIGN(a)==VP_SIGN(b)) {
 					// Int + Inf(same sign)
-                    VpSetInf((VP_HANDLE)c,VP_SIGN(a));
+                    VpException(VpSetInf((VP_HANDLE)c,VP_SIGN(a)),"Operation includes Infinity!");
                     return 0;
                 } else {
 					// Inf + Inf (different sign)
-                    VpSetNaN((VP_HANDLE)c);
+                    VpException(VpSetNaN((VP_HANDLE)c),"Result NaN(Inf - Inf)!");
                     return 0;;
                 }
             case '-': /* - */
                 if(VP_SIGN(a)!=VP_SIGN(b)) {
 					// Inf - Inf(different sign)
-                    VpSetInf((VP_HANDLE)c,VP_SIGN(a));
+                    VpException(VpSetInf((VP_HANDLE)c,VP_SIGN(a)),"Result Infinity(Inf + Inf)!");
                     return 0;
                 } else {
 					// Inf - Inf (same sign)
-                    VpSetNaN((VP_HANDLE)c);
+                    VpException(VpSetNaN((VP_HANDLE)c),"Result NaN(Inf + Inf)!");
                     return 0;
                 }
                 break;
             case '*': /* * */
 				// Inf * Inf
-                VpSetInf((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b));
+                VpException(VpSetInf((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b)),"Result Infinity(Inf * Inf)!");
                 return 0;
             case '/': /* / */
 				// Inf / Inf
-                VpSetNaN((VP_HANDLE)c);
+                VpException(VpSetNaN((VP_HANDLE)c),"Result NaN(Inf / Inf)!");
                 return 0;
             }
 			// ??
 			ASSERT(FALSE);
-            VpSetNaN((VP_HANDLE)c);
+            VpException(VpSetNaN((VP_HANDLE)c),"Result NaN(undefined)!");
             return 0;
         }
 
@@ -285,30 +338,30 @@ static int
         {
         case '+': /* + */
         case '-': /* - */
-                VpSetInf((VP_HANDLE)c,VP_SIGN(a));
+                VpException(VpSetInf((VP_HANDLE)c,VP_SIGN(a)),"Result Infinity(Inf included)!");
 				return 0;
         case '*': /* * */
                 if(VpIsZero((VP_HANDLE)b)) {
 					// Inf * 0 
-                    VpSetNaN((VP_HANDLE)c);
+                    VpException(VpSetNaN((VP_HANDLE)c),"Result NaN(Inf * 0)!");
                     return 0;
                 }
 				// Inf * x
-                VpSetInf((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b));
+                VpException(VpSetInf((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b)),"Result Infinity(Inf * x)!");
 				return 0;
         case '/': /* / */
 				// Inf / X
                 if(VpIsZero((VP_HANDLE)b)) {
 					// Inf * 0 
-                    VpSetNaN((VP_HANDLE)c);
+                    VpException(VpSetNaN((VP_HANDLE)c),"Result NaN(Inf * 0)!");
                     return 0;
                 }
-                VpSetInf((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b));
+                VpException(VpSetInf((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b)),"Result Infinity(Inf * x)!");
 				return 0;
         }
 		// ???
 		ASSERT(FALSE);
-        VpSetInf((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b));
+        VpException(VpSetInf((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b)),"Result Infinity(undefined)!");
 		return 0;
     }
 
@@ -317,27 +370,37 @@ static int
         switch(op)
         {
         case '+': /* + */
-                VpSetInf((VP_HANDLE)c,VP_SIGN(b));
+                VpException(VpSetInf((VP_HANDLE)c,VP_SIGN(b)),"Result Infinity(Inf + x)!");
                 return 0;
         case '-': /* - */
-                VpSetInf((VP_HANDLE)c,-VP_SIGN(b));
+                VpException(VpSetInf((VP_HANDLE)c,-VP_SIGN(b)),"Result Infinity(Inf - x)!");
                 return 0;
         case '*': /* * */
                 if(VpIsZero((VP_HANDLE)a)) {
-                    VpSetNaN((VP_HANDLE)c);
+                    VpException(VpSetNaN((VP_HANDLE)c),"Result NaN(Inf * 0)!");
 	                return 0;
                 }
-                VpSetInf((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b));
+                VpException(VpSetInf((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b)),"Result Infinity(Inf * x)!");
                 return 0;
         case '/': /* / */
-                VpSetZero((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b));
+                VpException(VpSetZero((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b)),"Result zero(x/Inf)!");
                 return 0;
         }
 		// ???
 		ASSERT(FALSE);
-        VpSetInf((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b));
+        VpException(VpSetInf((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b)),"Result Infinity(undefined)!");
         return 0;
     }
+
+	if(op=='/' && VpIsZero((VP_HANDLE)b)) {
+		/* Zero devide !! */
+		if(VpIsZero((VP_HANDLE)a)) {
+	        VpException(VpSetNaN((VP_HANDLE)c),"Result NaN (0/0)!");
+		} else {
+	        VpException(VpSetInf((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b)),"Result Infinity(zero division)!");
+		}
+		return 0;
+	}
     return 1; /* Results OK */
 }
 
@@ -534,13 +597,6 @@ static int
     VP_DIGIT av, bv, mrv;
 	VP_DIGIT borrow;
 
-#ifdef BIGDECIMAL_DEBUG
-    if(gfDebug) {
-        VPrint(stdout, "VpSubAbs called: a = %\n", a);
-        VPrint(stdout, "     b = %\n", b);
-    }
-#endif /* BIGDECIMAL_DEBUG */
-
     word_shift = VpSetPTR(a, b, c, &ap, &bp, &cp, &av, &bv);
     a_pos = ap;
     b_pos = bp;
@@ -613,11 +669,6 @@ Assign_a:
     mrv = 0;
 
 Exit:
-#ifdef BIGDECIMAL_DEBUG
-    if(gfDebug) {
-        VPrint(stdout, "VpSubAbs exit: c=% \n", c);
-    }
-#endif /* BIGDECIMAL_DEBUG */
     return (int)mrv;
 }
 
@@ -734,61 +785,6 @@ Exit:
 }
 
 /*
- *  0.0 & 1.0 generator
- *    These gZero_..... and gOne_..... can be any name
- *    referenced from nowhere except Zero() and One().
- *    gZero_..... and gOne_..... must have global scope
- *    (to let the compiler know they may be changed in outside
- *    (... but not actually..)).
- */
-volatile const double gZero_ABCED9B1_CE73__00400511F31D = 0.0;
-volatile const double gOne_ABCED9B4_CE73__00400511F31D  = 1.0;
-
-static double
-	Zero(void)
-{
-    return gZero_ABCED9B1_CE73__00400511F31D;
-}
-
-static double
-	One(void)
-{
-    return gOne_ABCED9B4_CE73__00400511F31D;
-}
-
-static double
-	VpGetDoubleNaN(void) /* Returns the value of NaN */
-{
-    double fNaN = 0.0;
-    if(fNaN==0.0) fNaN = Zero()/Zero();
-    return fNaN;
-}
-
-static double
-	VpGetDoublePosInf(void) /* Returns the value of +Infinity */
-{
-    double fInf = 0.0;
-    if(fInf==0.0) fInf = One()/Zero();
-    return fInf;
-}
-
-static double
-	VpGetDoubleNegInf(void) /* Returns the value of -Infinity */
-{
-    double fInf = 0.0;
-    if(fInf==0.0) fInf = -(One()/Zero());
-    return fInf;
-}
-
-static double
-	VpGetDoubleNegZero(void) /* Returns the value of -0 */
-{
-    double nzero = 1000.0;
-    if(nzero!=0.0) nzero = (One()/VpGetDoubleNegInf());
-    return nzero;
-}
-
-/*
  * Initializer Vp routines and constants used.
  */
 static void 
@@ -812,12 +808,6 @@ static void
 	BASE1     = (BASE/10);
 	DBLE_FIG  = (DBL_DIG+1);    /* figure of double */
 
-    /* Setup +/- Inf  NaN -0 */
-    VpGetDoubleNaN();
-    VpGetDoublePosInf();
-    VpGetDoubleNegInf();
-    VpGetDoubleNegZero();
-
     /* Allocates Vp constants. */
     VpConstOne = (Real*)VpAlloc("1",1);
 	VpConstPt5 = (Real*)VpAlloc("0.5",1);
@@ -827,6 +817,9 @@ static void
 
 /*
  *   c = a / b,  remainder = r
+ *   Because 'r = a - c * b' must be satisfied,
+ *   following conditions are mandatory,otherwise NaN returned.
+ *      r->MaxPrec > a->Prec 
  */
 VP_EXPORT(VP_HANDLE)
 	VpDiv(VP_HANDLE hc, VP_HANDLE hr, VP_HANDLE ha, VP_HANDLE hb)
@@ -843,27 +836,23 @@ VP_EXPORT(VP_HANDLE)
     VP_DIGIT  borrow, borrow1, borrow2;
     VP_DIGIT  qb;
 
-    VpSetNaN((VP_HANDLE)r);
-    if(!VpIsNumericOP(c,a,b,'/')) goto Exit;
-    if(VpIsZero((VP_HANDLE)a)&&VpIsZero((VP_HANDLE)b)) {
-        VpSetNaN((VP_HANDLE)c);
-        goto Exit;
-    }
-    if(VpIsZero((VP_HANDLE)b)) {
-        VpSetInf((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b));
-        goto Exit;
-    }
+	if(hr==hc||hr==ha||hr==hb) {
+		return VpException(VpSetNaN(hc),"Invalid operation in VpDiv(input==output)!");
+	}
+    if(!VpIsNumericOP(c,a,b,'/')) return hc;
+
+	VpSetNaN((VP_HANDLE)r);
     if(VpIsZero((VP_HANDLE)a)) {
         /* numerator a is zero  */
         VpSetZero((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b));
         VpSetZero((VP_HANDLE)r,VP_SIGN(a)*VP_SIGN(b));
-        goto Exit;
+        return hc;
     }
     if(VpIsOne((VP_HANDLE)b)) {
         /* divide by one  */
         VpAsgn((VP_HANDLE)c, (VP_HANDLE)a, VP_SIGN(b));
         VpSetZero((VP_HANDLE)r,VP_SIGN(a));
-        goto Exit;
+        return hc;
     }
 
     word_a = a->Prec;
@@ -874,7 +863,7 @@ VP_EXPORT(VP_HANDLE)
     ind_c = 0;
     ind_r = 1;
 	/*
-	   c = a/b
+	   c = a/b: a->Prec < r->MaxPrec
 	*/
     if(word_a >= word_r) goto space_error;
 
@@ -989,6 +978,7 @@ sub_mult:
         }
 
         r->frac[ind_r] -= borrow2;
+
 carry:
         ind_r = ind_c;
         while(c->frac[ind_r] >= BASE) {
@@ -998,8 +988,6 @@ carry:
         }
     }
 
-space_error:
-	ASSERT(FALSE);
     /* End of operation, now final arrangement */
 out_side:
     c->Prec = word_c;
@@ -1014,16 +1002,18 @@ out_side:
     if(!AddExponent(r,1)) return hc;
     VP_SIGN(r) = VP_SIGN(a);
     VpNmlz(r);            /* normalize r(remainder) */
-
-Exit:
     return hc;
+
+space_error:
+	ASSERT(FALSE);
+	return VpException(VpSetNaN(hc),"Remainder's capacity too small in VpDiv()!");
 }
 
 /*
  *  VpComp = 0  ... if a=b,
  *    1  ... a>b,
  *   -1  ... a<b.
- *   999  ... result undefined(NaN)
+ *    9  ... result undefined(VP_ERROR_RESULT_NaN)
  */
 VP_EXPORT(int)
 	VpCmp(VP_HANDLE ha, VP_HANDLE hb)
@@ -1035,13 +1025,13 @@ VP_EXPORT(int)
     VP_UINT mx, ind;
 
 	val = 0;
-    if(VpIsNaN((VP_HANDLE)a)||VpIsNaN((VP_HANDLE)b)) return 999;
+    if(VpIsNaN((VP_HANDLE)a)||VpIsNaN((VP_HANDLE)b)) return (int)VpException((VP_HANDLE)VP_ERROR_RESULT_NON_NUMERIC,"Comparison contains NaN!");
     if(!VpIsNumeric((VP_HANDLE)a)) {
         if(!VpIsNumeric((VP_HANDLE)b)) {
 			// a,b both Infinity
 			if(a->sign>0 && b->sign<0) return  1;
 			if(a->sign<0 && b->sign>0) return -1;
-			return 999; // unable to compare Infinity
+			return (int)VpException((VP_HANDLE)VP_ERROR_RESULT_NON_NUMERIC,"Unable to compare Infinities!"); // unable to compare Infinity
 		}
         if(a->sign>0)   return  1;
         return  -1;
@@ -1127,271 +1117,19 @@ VP_EXPORT(int)
 }
 
 
-
-VP_EXPORT(FRACTION)
-VpVtoD(VP_HANDLE p)
-{
-	FRACTION v;
-	Real *m = (Real*)p;
-
-	v.value    = 0;
-	v.shifted  = 0;
-    v.exponent = 0;
-
-    VP_UINT   ind_m;
-	VP_DIGIT mm;
-    double div;
-
-    int    f = 1;
-
-    if(VpIsNaN((VP_HANDLE)m)) {
-        v.value = VpGetDoubleNaN();
-        return v; /* NaN */
-    }
-
-    if(VpIsPosZero((VP_HANDLE)m)) return v;
-
-	if(VpIsNegZero((VP_HANDLE)m)) {
-        v.value = VpGetDoubleNegZero();
-		return v;
-	}
-
-	if(VpIsPosInf((VP_HANDLE)m)) {
-        v.value = VpGetDoublePosInf();
-		return v;
-    }
-
-	if(VpIsNegInf((VP_HANDLE)m)) {
-        v.value = VpGetDoubleNegInf();
-		return v;
-    }
-
-    /* Normal number */
-    ind_m = 0;
-    v.exponent = m->exponent * (int)BASE_FIG;
-    mm = m->frac[0];
-	int e = 0;
-	while(mm>0)
-	{
-		mm /= 10;
-		e++;
-	}
-	e = BASE_FIG - e;
-	v.shifted = e; // v.exponent+v.shifted Ç™ BASE_FIG ÇÃî{êîÇ…Ç»ÇÈÅB
-	mm = 1;
-	for(int i=0;i<e;++i)
-	{
-		mm *= 10;
-		v.exponent--;
-	}
-
-    double d  = 0.0;
-	double ds = 0.0;
-	VP_DIGIT fr;
-    div = 1.;
-    while(ind_m < m->Prec) {
-        div /= (double)BASE;
-		ds = d;
-		fr = m->frac[ind_m++];
-        d = d + ((double)fr) * div * mm;
-		if(fr!=0 && ds==d) break; 
-    }
-	if(m->sign>0) v.value =  d;
-	else          v.value = -d;
-	return v;
-}
-
-/*
- * m <- d
- */
-void
-VpDtoV(Real *m, double d)
-{
-    VP_UINT ind_m, mm;
-    int   ne;
-    int  i;
-    double  val, val2;
-
-    if(d == 0.0) {
-        VpSetZero((VP_HANDLE)m,1);
-        goto Exit;
-    }
-    val =(d > 0.) ? d :(-d);
-    ne = 0;
-    if(val >= 1.0) {
-        while(val >= 1.0) {
-            val /= (double)BASE;
-            ++ne;
-        }
-    } else {
-        val2 = 1.0 /(double)BASE;
-        while(val < val2) {
-            val *= (double)BASE;
-            --ne;
-        }
-    }
-    /* Now val = 0.xxxxx*BASE**ne */
-
-    mm = m->MaxPrec;
-    memset(m->frac, 0, mm * sizeof(int ));
-    for(ind_m = 0;val > 0.0 && ind_m < mm;ind_m++) {
-        val *= (double)BASE;
-        i = (int )val;
-        val -= (double)i;
-        m->frac[ind_m] = i;
-    }
-    if(ind_m >= mm) ind_m = mm - 1;
-    VP_FINITE_SIGN(m, (d > 0.0) ? 1 : -1);
-    m->Prec = ind_m + 1;
-    m->exponent = ne;
-
-    VpInternalRound(m, 0, (m->Prec > 0) ? m->frac[m->Prec-1] : 0,
-                      (VP_DIGIT)(val*(double)BASE));
-
-Exit:
-    return;
-}
-
-/*
- * y = SQRT(x),  y*y - x =>0
- */
-VP_EXPORT(int)
-VpSqrt(VP_HANDLE py, VP_HANDLE px,int ixRound)
-{
-	Real *y = (Real*)py;
-	Real *x = (Real*)px;
-
-	Real *f = NULL;
-    Real *r = NULL;
-    VP_UINT y_prec;
-	VP_UINT f_prec;
-
-	FRACTION fr;    /* val <- x  */
-
-	int   n, e;
-    int   prec;
-    int  nr;
-    double val;
-	int fConverged = 1;
-
-    /* Zero, NaN or Infinity ? */
-    if(!VpHasVal((VP_HANDLE)x)) {
-        if(VpIsZero((VP_HANDLE)x)||VP_SIGN(x)>0) {
-            VpAsgn((VP_HANDLE)y,(VP_HANDLE)x,1);
-            goto Exit;
-        }
-        VpSetNaN((VP_HANDLE)y);
-        goto Exit;
-    }
-
-     /* Negative ? */
-    if(VP_SIGN(x) < 0) {
-        VpSetNaN((VP_HANDLE)y);
-        goto Exit;
-    }
-
-    /* One ? */
-    if(VpIsOne((VP_HANDLE)x)) {
-        VpSetOne((VP_HANDLE)y);
-        goto Exit;
-    }
-
-	//
-	// Initial value is obtained from double sqrt()
-	fr = VpVtoD((VP_HANDLE)x);    /* val <- x  */
-	val = fr.value;
-	for(int i=0;i<fr.shifted;++i) val /= 10.0;
-	e   = (fr.exponent+fr.shifted)/BASE_FIG;
-    n   = e / 2;
-	if((e % 2)==0) {
-	    VpDtoV(y, sqrt(val));    /* y <- sqrt(val) */
-	} else {
-		if(e>0) VpDtoV(y, sqrt(val)*sqrt((double)BASE));
-		else    VpDtoV(y, sqrt(val)/sqrt((double)BASE));
-	}
-    y->exponent += n;
-	//
-
-	//
-	// start Newton method
-	//
-
-    n = (int)y->MaxPrec;
-    if ((int)x->MaxPrec > n) n = (int)x->MaxPrec;
-    f = (Real*)VpAllocReal(2*(n + 1)*BASE_FIG);
-    r = (Real*)VpAllocReal(4*(n + 2)*BASE_FIG);
-
-    nr = 0;
-    y_prec = y->MaxPrec;
-	f_prec = f->MaxPrec;
-    prec = x->exponent - (int)y_prec + 1;
-    if (x->exponent >= 0) ++prec;
-    else                  --prec;
-
-	n = (int)((DBLE_FIG + BASE_FIG - 1) / BASE_FIG); // ç≈èâÇÃëÂëÃÇÃåÖêî
-    y->MaxPrec = Min((VP_UINT)n , y_prec);
-	if(y->MaxPrec<y->Prec) y->MaxPrec = y->Prec;
-    n = (int)(y_prec * (BASE_FIG+1));
-    if (n < (int  )maxnr) n = (int)maxnr;
-    do {
-        y->MaxPrec += BASE_FIG;
-        f->MaxPrec = (y->MaxPrec+1)*2;
-        if (y->MaxPrec > y_prec) y->MaxPrec = y_prec;
-        if (f->MaxPrec > f_prec) f->MaxPrec = f_prec;
-
-		VpDiv((VP_HANDLE)f, (VP_HANDLE)r, (VP_HANDLE)x, (VP_HANDLE)y);    /* f = x/y    */
-		VpAddSub(r, f, y, -1);      /* r = f - y  */
-		f->MaxPrec = r->Prec + 2;
-		if(f->MaxPrec>f_prec)f->MaxPrec = f_prec;
-        VpMul((VP_HANDLE)f, (VP_HANDLE)VpConstPt5, (VP_HANDLE)r);   /* f = 0.5*r  */
-        if(VpIsZero((VP_HANDLE)f))         goto converge;
-        VpAddSub(r, f, y, 1);       /* r = y + f  */
-        VpAsgn((VP_HANDLE)y, (VP_HANDLE)r, 1);                             /* y = r      */
-        if(f->exponent < prec) goto converge;
-    } while(++nr < n);
-
-	ASSERT(FALSE);
-	fConverged = 0;
-
-converge:
-    y->MaxPrec = y_prec;
-    VpSetSign((VP_HANDLE)y, 1);
-	VpNmlz(y);
-	if(ixRound>0)
-	{
-		VpLengthRound((VP_HANDLE)y,ixRound);
-	}
-
-Exit:
-    VP_FREE_REAL(f);
-    VP_FREE_REAL(r);
-	ASSERT(fConverged);
-	if(!fConverged) return VP_ERROR_NOT_CONVERGED;
-    return y->sign;
-}
-
-
 /*
  *  y = x - fix(x)
  */
-void
-VpFrac(Real *y, Real *x)
+VP_EXPORT(VP_HANDLE)
+	VpFrac(VP_HANDLE hy, VP_HANDLE hx)
 {
     VP_UINT my, ind_y, ind_x;
+	Real *y = (Real*)hy;
+	Real *x = (Real*)hx;
 
-    if(!VpHasVal((VP_HANDLE)x)) {
-        VpAsgn((VP_HANDLE)y,(VP_HANDLE)x,1);
-        goto Exit;
-    }
-
-    if (x->exponent > 0 && (VP_UINT)x->exponent >= x->Prec) {
-        VpSetZero((VP_HANDLE)y,VP_SIGN(x));
-        goto Exit;
-    }
-    else if(x->exponent <= 0) {
-        VpAsgn((VP_HANDLE)y, (VP_HANDLE)x, 1);
-        goto Exit;
-    }
+    if(!VpHasVal((VP_HANDLE)x))                             return VpAsgn((VP_HANDLE)y,(VP_HANDLE)x,1);
+    if (x->exponent > 0 && (VP_UINT)x->exponent >= x->Prec) return VpSetZero((VP_HANDLE)y,VP_SIGN(x));
+	else if(x->exponent <= 0)                               return VpAsgn((VP_HANDLE)y, (VP_HANDLE)x, 1);
 
     /* satisfy: x->exponent > 0 */
 
@@ -1407,54 +1145,45 @@ VpFrac(Real *y, Real *x)
         ++ind_y;
         ++ind_x;
     }
-    VpNmlz(y);
-
-Exit:
-    return;
+    return VpNmlz(y);
 }
 
 /*
  *   y = x ** n
  */
-int
-VpPower(Real *y, Real *x, int   n)
+VP_EXPORT(VP_HANDLE)
+	VpPower(VP_HANDLE hy, VP_HANDLE hx, int n)
 {
     VP_UINT s, ss;
     int  sign;
+	VP_HANDLE hw1 = NULL;
+	VP_HANDLE hw2 = NULL;
     Real *w1 = NULL;
     Real *w2 = NULL;
+	Real *x = (Real *)hx;
+	Real *y = (Real *)hy;
 
-    if(VpIsZero((VP_HANDLE)x)) {
-        if(n==0) {
-           VpSetOne((VP_HANDLE)y);
-           goto Exit;
-        }
+	if(hy==hx) {
+		return VpException(VpSetNaN(hy),"Invalid operation in VpPower(input==output)!");
+	}
+
+	if(VpIsZero((VP_HANDLE)x)) {
+        if(n==0) return VpSetOne((VP_HANDLE)y);
         sign = VP_SIGN(x);
         if(n<0) {
            n = -n;
            if(sign<0) sign = (n%2)?(-1):(1);
-           VpSetInf ((VP_HANDLE)y,sign);
+           return VpSetInf((VP_HANDLE)y,sign);
         } else {
            if(sign<0) sign = (n%2)?(-1):(1);
-           VpSetZero((VP_HANDLE)y,sign);
+           return VpSetZero((VP_HANDLE)y,sign);
         }
-        goto Exit;
     }
-    if(VpIsNaN((VP_HANDLE)x)) {
-        VpSetNaN((VP_HANDLE)y);
-        goto Exit;
-    }
+    if(VpIsNaN((VP_HANDLE)x)) return VpException(VpSetNaN((VP_HANDLE)y),"Result NaN in VpPower()!");
     if(VpIsInf((VP_HANDLE)x)) {
-        if(n==0) {
-            VpSetOne((VP_HANDLE)y);
-            goto Exit;
-        }
-        if(n>0) {
-            VpSetInf((VP_HANDLE)y, (n%2==0 || VpIsPosInf((VP_HANDLE)x)) ? 1 : -1);
-            goto Exit;
-        }
-        VpSetZero((VP_HANDLE)y, (n%2==0 || VpIsPosInf((VP_HANDLE)x)) ? 1 : -1);
-        goto Exit;
+        if(n==0) return VpSetOne((VP_HANDLE)y);
+        if(n>0) return  VpException(VpSetInf((VP_HANDLE)y, (n%2==0 || VpIsPosInf((VP_HANDLE)x)) ? 1 : -1),"Result Infinity in VpPower()!");
+        return VpSetZero((VP_HANDLE)y, (n%2==0 || VpIsPosInf((VP_HANDLE)x)) ? 1 : -1);
     }
 
     if((x->exponent == 1) &&(x->Prec == 1) &&(x->frac[0] == 1)) {
@@ -1471,13 +1200,19 @@ VpPower(Real *y, Real *x, int   n)
         sign = -1;
         n = -n;
     } else {
-        VpSetOne((VP_HANDLE)y);
-        goto Exit;
+        return VpSetOne((VP_HANDLE)y);
     }
 
     /* Allocate working variables  */
-    w1 = (Real*)VpAlloc("0",(y->MaxPrec + 2) * BASE_FIG);
-    w2 = (Real*)VpAlloc("0",(w1->MaxPrec * 2 + 1) * BASE_FIG);
+    hw1 = VpAlloc("0",(y->MaxPrec + 2) * BASE_FIG+1);
+	if(VpIsInvalid(hw1)) return VpException(VpSetNaN(hy),"Memory allocation error in VpPower()");
+	w1 = (Real*)hw1;
+    hw2 = VpAlloc("0",(w1->MaxPrec * 2 + 1) * BASE_FIG+1);
+	if(VpIsInvalid(hw2)) {
+		VpFree(&hw1);
+		return VpException(VpSetNaN(hy),"Memory allocation error in VpPower()");
+	}
+	w2 = (Real*)hw2;
 
 	/* calculation start */
     VpAsgn((VP_HANDLE)y, (VP_HANDLE)x, 1);
@@ -1499,9 +1234,9 @@ VpPower(Real *y, Real *x, int   n)
     }
 
 Exit:
-    VP_FREE_REAL(w2);
-    VP_FREE_REAL(w1);
-    return 1;
+    VpFree(&hw2);
+    VpFree(&hw1);
+    return hy;
 }
 
 static char *VpAddString(char *t,char *s)
@@ -1623,8 +1358,12 @@ static VP_HANDLE
 }
 
 /*
-   +++++++++++++++++++++++++++++++ Exported functions. +++++++++++++++++++++++++++++++++++++++++++
+   +++++++++++++++++++++++++++++++ Exported functions. ++++++++++++++++++++++++++++++++++
 */
+
+ VP_EXPORT(VP_UINT) VpGetMaxIterationCount()          {return gMaxIter;}
+ VP_EXPORT(VP_UINT) VpSetMaxIterationCount(VP_UINT c) {return gMaxIter=c;}
+ VP_EXPORT(VP_UINT) VpGetIterationCount()             {return gIterCount;}
 
 
 VP_EXPORT(int) VpGetRoundMode() {return gRoundMode;}
@@ -1707,6 +1446,7 @@ VP_EXPORT(VP_HANDLE) VpSetNegInf(VP_HANDLE a) { (((Real*)a)->frac[0]=0,((Real*)a
 VP_EXPORT(VP_HANDLE) VpSetInf(VP_HANDLE a,int s)  { ( ((s)>0)?VpSetPosInf(a):VpSetNegInf(a) );return a;}
 VP_EXPORT(int)       VpIsOne(VP_HANDLE a)     { return (((Real*)a)->Prec==1 &&((Real*)a)->frac[0]==1 && ((Real*)a)->exponent==1);}
 VP_EXPORT(VP_UINT)   VpCapacity(VP_HANDLE h)  { return ((Real*)h)->MaxPrec*BASE_FIG;}
+VP_EXPORT(VP_UINT)   VpVolume(VP_HANDLE h)    { return ((Real*)h)->Prec*BASE_FIG;}
 
 /*
  return number of effective digits.
@@ -1949,6 +1689,74 @@ VP_EXPORT(int)
 }
 
 /*
+  prints  VP h in F format(xxxxx.yyyyy..).
+  currently DigitSeparator does not function.
+ */
+VP_EXPORT(int)
+	VpPrintF(FILE *fp, VP_HANDLE h)
+{
+	Real *a  = (Real*)h;
+    VP_UINT   i, n, nc;
+    VP_DIGIT  m, e, nn;
+    int       ex;
+
+	if(VpIsInvalid(h))  {
+		return fprintf(fp,"?? Not VP??");
+	}
+
+	/* Check if NaN or Inf. */
+	if(VpIsNaN((VP_HANDLE)a))    {return fprintf(fp,SZ_NaN);}
+    if(VpIsPosInf((VP_HANDLE)a)) {return fprintf(fp,SZ_INF);}
+    if(VpIsNegInf((VP_HANDLE)a)) {return fprintf(fp,SZ_NINF);}
+    if(VpIsZero((VP_HANDLE)a))   {return fprintf(fp,"0.0");}
+
+	nc = 0;
+	if(VP_SIGN(a) < 0) {
+        nc += fprintf(fp, "-");
+    } else {
+		if(gDigitLeader!=0) {
+			nc += fprintf(fp, "%c",gDigitLeader);
+		}
+	}
+
+    n  = a->Prec;
+    ex = a->exponent;
+    if(ex<=0) {
+       nc += fprintf(fp,"0.");
+       while(ex<0) {
+          for(i=0;i<BASE_FIG;++i) {
+				nc += fprintf(fp,"0");
+		  }
+          ++ex;
+       }
+       ex = -1;
+    }
+
+    for(i=0;i < n;++i) {
+       --ex;
+       if(i==0 && ex >= 0) {
+           nc += fprintf(fp, "%lu", (unsigned long)a->frac[i]);
+       } else {
+           m = BASE1;
+           e = a->frac[i];
+           while(m) {
+               nn = e / m;
+               nc += fprintf(fp,"%c",(char)(nn + '0'));
+               e = e - nn * m;
+               m /= 10;
+           }
+       }
+       if(ex == 0 && (i+1)<n) nc += fprintf(fp,".");
+    }
+    while(--ex>=0) {
+       m = BASE;
+       while(m/=10) nc += fprintf(fp,"0");
+       // if(ex == 0) nc += fprintf(fp,".");
+    }
+	return nc;
+}
+
+/*
  *  returns number of chars needed to represent h in specified format.
  */
 VP_EXPORT(VP_UINT)
@@ -2169,7 +1977,7 @@ VP_EXPORT(char*)
  * [Input]
  *   A   ... RHSV
  *   isw ... switch for assignment.
- *    C = A  when isw > 0
+ *    C = A  when isw > 0 or isw == 0 (not round)
  *    C = -A when isw < 0
  *    if C->MaxPrec < A->Prec,then round operation
  *    will be performed.
@@ -2177,32 +1985,35 @@ VP_EXPORT(char*)
  *  V  ... LHSV
  */
 VP_EXPORT(VP_HANDLE)
-	VpAsgn(VP_HANDLE C,VP_HANDLE A, int isw)
+	VpAsgn(VP_HANDLE C,VP_HANDLE A, int isw) {return VpAsgn2(C,A,isw,VpGetRoundMode());}
+
+VP_EXPORT(VP_HANDLE)
+	VpAsgn2(VP_HANDLE C,VP_HANDLE A, int isw,int round)
 {
     VP_UINT n;
+	int i;
 	Real *a = (Real*)A;
 	Real *c = (Real*)C;
 
     if(VpIsNaN((VP_HANDLE)a)) {
-        VpSetNaN((VP_HANDLE)c);
-        return C;
+        return VpException(VpSetNaN((VP_HANDLE)c),"NaN assigned in VpAsgn()");
     }
     if(VpIsInf((VP_HANDLE)a)) {
-        VpSetInf((VP_HANDLE)c,isw*VP_SIGN(a));
-        return C;
+        return VpException(VpSetInf((VP_HANDLE)c,isw*VP_SIGN(a)),"Infinity assigned in VpAsgn()");
     }
     if(VpIsZero((VP_HANDLE)a)) {
-        VpSetZero((VP_HANDLE)c,isw*VP_SIGN(a));
-		return C;
+        return VpSetZero((VP_HANDLE)c,isw*VP_SIGN(a));
     }
 
 	c->exponent = a->exponent;    /* store  exponent */
-    VP_FINITE_SIGN(c,isw*VP_SIGN(a));    /* set sign */
+	i = isw;
+	if(i==0) i = 1;
+    VP_FINITE_SIGN(c,i*VP_SIGN(a));    /* set sign */
     n =(a->Prec < c->MaxPrec) ?(a->Prec) :(c->MaxPrec);
     c->Prec = n;
     memcpy(c->frac, a->frac, n * sizeof(VP_DIGIT));
-    if(c->Prec < a->Prec) {
-		VpInternalRound(c,n,(n>0)?a->frac[n-1]:0,a->frac[n]);
+    if(isw!=0 && c->Prec < a->Prec) {
+		VpInternalRound2(c,n,(n>0)?a->frac[n-1]:0,a->frac[n],round);
     }
 	return C;
 }
@@ -2281,12 +2092,6 @@ VP_EXPORT(VP_HANDLE)
        each int  contains a value between 0 and BASE-1, consisting of BASE_FIG
        decimal places.
 
-       (that numbers of decimal places are typed as int  is somewhat confusing)
-
-       nf is now position (in decimal places) of the digit from the start of
-          the array.
-       ix is the position (in int S) of the int  containing the decimal digit,
-          from the start of the array.
        v is the value of this int 
        ioffset is the number of extra decimal places along of this decimal digit
           within v.
@@ -2411,7 +2216,7 @@ VP_EXPORT(VP_HANDLE)
 
 
 /*
- * must be  MaxPrec(c) > Prec(a)+Prec(b) , or VP_ERROR_BAD_LEFT is returned.
+ * must be  MaxPrec(c) > Prec(a)+Prec(b) , or NaN is returned.
  *
  *       c = a * b , Where a = a0a1a2 ... an
  *             b = b0b1b2 ... bm
@@ -2439,23 +2244,17 @@ VP_EXPORT(VP_HANDLE)
     VP_DIGIT  carry;
     VP_DIGIT  s;
 
-    if(!VpIsNumericOP(c,a,b,'*')) goto Exit; /* No significant digit */
+    if(!VpIsNumericOP(c,a,b,'*')) return hc; /* No significant digit */
 
     if(VpIsZero((VP_HANDLE)a) || VpIsZero((VP_HANDLE)b)) {
         /* at least a or b is zero */
-        VpSetZero((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b));
-        goto Exit; /* 0: 1 significant digit */
+        return VpSetZero((VP_HANDLE)c,VP_SIGN(a)*VP_SIGN(b));
     }
 
-    if(VpIsOne((VP_HANDLE)a)) {
-        VpAsgn((VP_HANDLE)c, (VP_HANDLE)b, VP_SIGN(a));
-        goto Exit;
-    }
-    if(VpIsOne((VP_HANDLE)b)) {
-        VpAsgn((VP_HANDLE)c, (VP_HANDLE)a, VP_SIGN(b));
-        goto Exit;
-    }
-    if((b->Prec) >(a->Prec)) {
+    if(VpIsOne((VP_HANDLE)a)) return VpAsgn((VP_HANDLE)c, (VP_HANDLE)b, VP_SIGN(a));
+    if(VpIsOne((VP_HANDLE)b)) return VpAsgn((VP_HANDLE)c, (VP_HANDLE)a, VP_SIGN(b));
+
+	if((b->Prec) >(a->Prec)) {
         /* Adjust so that digits(a)>digits(b) */
         Real *w = a;
         a = b;
@@ -2467,16 +2266,13 @@ VP_EXPORT(VP_HANDLE)
     MxIndAB = a->Prec + b->Prec - 1;
 
     if(MxIndC < MxIndAB) {    /* The Max. prec. of c < Prec(a)+Prec(b) */
-		ASSERT(FALSE);
-		return VP_ERROR_BAD_LEFT;
+		return VpException(VpSetNaN(hc),"Unable to multiply due to short capacity of LHSV of VpMul()!");
 	}
 
     /* set LHSV c info */
 
     c->exponent = a->exponent;    /* set exponent */
-    if(!AddExponent(c,b->exponent)) {
-		goto Exit;
-    }
+    if(!AddExponent(c,b->exponent)) goto Exit;
 
     VP_FINITE_SIGN(c,VP_SIGN(a)*VP_SIGN(b));    /* set sign  */
     carry = 0;
@@ -2528,6 +2324,562 @@ Exit:
     return hc;
 }
 
+/*
+ * y = SQRT(x),  y*y - x =>0
+ */
+VP_EXPORT(VP_HANDLE)
+	VpSqrt(VP_HANDLE hy, VP_HANDLE hx)
+{
+	Real *y = (Real*)hy;
+	Real *x = (Real*)hx;
+	Real *f = NULL;
+	Real *r = NULL;
+	VP_HANDLE hf;
+	VP_HANDLE hr;
+    VP_UINT   y_prec;
+	VP_UINT   f_prec;
+
+	VP_UINT   n;
+ 
+    int     prec;
+	int     fConverged = 1;
+
+	if(hy==hx) {
+		return VpException(VpSetNaN(hy),"Invalid operation in VpSqrt(input==output)!");
+	}
+
+    /* Zero, NaN or Infinity ? */
+    if(!VpHasVal((VP_HANDLE)x)) {
+        if(VpIsZero((VP_HANDLE)x)||VP_SIGN(x)>0) return VpAsgn((VP_HANDLE)y,(VP_HANDLE)x,1);
+		else                                     return VpException(VpSetNaN((VP_HANDLE)y),"Invalid argument for VpSqrt()!");
+    }
+
+     /* Negative ? */
+    if(VP_SIGN(x) < 0) return VpException(VpSetNaN((VP_HANDLE)y),"Negative number in VpSqrt()!");
+
+    /* One ? */
+    if(VpIsOne((VP_HANDLE)x)) return VpSetOne((VP_HANDLE)y);
+
+	//
+	// Initial value
+	VpAsgn(hy,hx,1);
+	y->exponent /= 2;
+
+	//
+	// start Newton method
+	//
+    n = y->MaxPrec+1;
+    if (x->MaxPrec > n) n = x->MaxPrec+1;
+    hf = VpAlloc("0",2*(n + 1)*BASE_FIG);
+	if(VpIsInvalid(hf)) return VpException(VpSetNaN(hy),"Memory allocation error in VpSqrt()!");
+    hr = VpAlloc("0",4*(n + 2)*BASE_FIG);
+	if(VpIsInvalid(hr)) {
+		VpFree(&hr);
+		VpException(VpSetNaN(hy),"Memory allocation error in VpSqrt()!");
+	}
+
+	f = (Real*)hf;
+	r = (Real*)hr;
+
+    y_prec = y->MaxPrec;
+	f_prec = f->MaxPrec;
+    prec = x->exponent - y_prec + 1;
+    if (x->exponent >= 0) ++prec;
+    else                  --prec;
+
+	n = ((DBLE_FIG + BASE_FIG - 1) / BASE_FIG);
+    y->MaxPrec = Min(n , y_prec);
+	if(y->MaxPrec<y->Prec) y->MaxPrec = y->Prec;
+    n = (y_prec * (BASE_FIG+1));
+    if (n < gMaxIter) n = gMaxIter;
+
+	gIterCount = 0;
+	do {
+        y->MaxPrec += BASE_FIG;
+        f->MaxPrec = (y->MaxPrec+1)*2;
+        if (y->MaxPrec > y_prec) y->MaxPrec = y_prec;
+        if (f->MaxPrec > f_prec) f->MaxPrec = f_prec;
+
+		VpDiv((VP_HANDLE)f, (VP_HANDLE)r, (VP_HANDLE)x, (VP_HANDLE)y);    /* f = x/y    */
+		VpAddSub(r, f, y, -1);      /* r = f - y  */
+		f->MaxPrec = r->Prec + 2;
+		if(f->MaxPrec>f_prec)f->MaxPrec = f_prec;
+        VpMul((VP_HANDLE)f, (VP_HANDLE)VpConstPt5, (VP_HANDLE)r);         /* f = 0.5*r  */
+        if(VpIsZero((VP_HANDLE)f))         goto converge;
+        VpAddSub(r, f, y, 1);       /* r = y + f  */
+        VpAsgn((VP_HANDLE)y, (VP_HANDLE)r, 1);                            /* y = r      */
+        if(f->exponent < prec) goto converge;
+    } while(++gIterCount < n);
+
+	VpException(hy,"Iteration count over in VpSqrt()!");
+	fConverged = 0;
+
+converge:
+    y->MaxPrec = y_prec;
+    VpSetSign((VP_HANDLE)y, 1);
+	VpNmlz(y);
+
+    VpFree(&hf);
+    VpFree(&hr);
+	ASSERT(fConverged);
+    return hy;
+}
+
+#define MEM_CHECK(c,m,msg)  \
+if(VpCapacity(c)<=(m)) {\
+	VpFree(&c);\
+	c=(VP_HANDLE)VpAllocReal((m+BASE_FIG));\
+	if(VpIsInvalid(c)) {VpException(c,msg);goto ErExit;}\
+}
+
+/*
+   y = PI
+   Calculates 3.1415.... (the number of times that a circle's diameter
+                          will fit around the circle) using J. Machin's formula.
+*/
+VP_EXPORT(VP_HANDLE)
+	VpPI(VP_HANDLE pi)
+{
+	int     exp;
+	VP_UINT sig;
+
+	sig    = VpCapacity(pi);
+	sig   += BASE_FIG*2+1;
+	pi     = VpSetPosZero(pi);
+
+	VP_HANDLE two    = VpAlloc("2",1);
+	VP_HANDLE m25    = VpAlloc("-0.04",4);
+    VP_HANDLE m57121 = VpAlloc("-57121",6);
+
+    VP_HANDLE u = VpAlloc("1",sig);
+	VP_HANDLE k = VpAlloc("1",sig);
+	VP_HANDLE w = VpAlloc("1",sig);
+	VP_HANDLE t = VpAlloc("-80",sig);
+	VP_HANDLE r = VpAlloc("0",sig+BASE_FIG); /* r->MaxPrec > a->Prec */
+
+	if(VpIsInvalid(two)||VpIsInvalid(m25)||VpIsInvalid(m57121)||
+	   VpIsInvalid(u)||VpIsInvalid(k)||VpIsInvalid(w)||VpIsInvalid(t)||VpIsInvalid(r)) {
+		   VpException(VpSetNaN(pi),"Memory allocation error in VpPI()!");
+		   goto Exit;
+	}
+
+	gIterCount = 0;
+	exp = (int)((Real*)pi)->MaxPrec;
+	while (!VpIsZero(u) && -(((Real*)u)->exponent) < exp) { 
+		VpMul(r,t,m25);
+		VpAsgn(t,r,1);
+		VpDiv(u,r,t,k);
+		VpAdd(r,pi,u);
+		VpAsgn(pi,r,1);
+		VpAdd(r,k,two);
+		VpAsgn(k,r,1);
+		if(++gIterCount>gMaxIter) {
+			VpException(pi,"Maximum iteration count exhausted in VpPI()");
+			goto Exit;
+		}
+	}
+
+	VpFree(&t);
+	t = VpAlloc("956",sig);
+
+	VpSetOne(u);
+	VpSetOne(k);
+	VpSetOne(w);
+
+	gIterCount = 0;
+	while (!VpIsZero(u) && -(((Real*)u)->exponent) < exp) { 
+		VpDiv(u,r,t,m57121);
+		VpAsgn(t,u,1);
+		VpDiv(u,r,t,k);
+		VpAdd(r,pi,u);
+		VpAsgn(pi,r,1);
+		VpAdd(r,k,two);
+		VpAsgn(k,r,1);
+		if(++gIterCount>gMaxIter) {
+			VpException(pi,"Maximum iteration count exhausted in VpPI()");
+			goto Exit;
+		}
+	}
+
+ Exit:
+	VpFree(&two);
+	VpFree(&m25);
+    VpFree(&m57121);
+    VpFree(&u);
+	VpFree(&k);
+	VpFree(&w);
+	VpFree(&t);
+	VpFree(&r);
+
+	return pi;
+}
+
+/*
+   y = exp(x)
+*/
+VP_EXPORT(VP_HANDLE)
+	VpExp(VP_HANDLE y,VP_HANDLE x)
+{
+	VP_HANDLE s;
+	VP_HANDLE r;
+	VP_HANDLE c;
+	VP_HANDLE xn;
+	int       sig;
+	const char *msg = "Memory allocation error in VpExp()!";
+
+	if(y==x) {
+		return VpException(VpSetNaN(y),"Invalid operation in VpSqrt(input==output)!");
+	}
+
+	if(VpIsZero(x))              return VpSetOne(y);
+	if (!VpHasVal((VP_HANDLE)x)) return VpException(VpSetNaN(y),"Invalid argument for VpExp()");
+
+	sig = (int)VpCapacity(y)+BASE_FIG+1;
+	s  = VpAlloc("1",sig*2);
+	r  = VpAlloc("1",sig*2);
+	xn = VpAlloc("1",sig*2);
+	c  = VpAlloc("2",1);
+
+	if(VpIsInvalid(s)||VpIsInvalid(r)||VpIsInvalid(xn)||VpIsInvalid(c)) {
+		   VpException(VpSetNaN(y),msg);
+		   goto Exit;
+	}
+
+	sig = ((Real*)y)->MaxPrec+1;
+	
+	VpAsgn(xn,x,1);
+	VpAsgn(y,x,1);
+	VpAdd(y,s,x); /* y = 1+x/1 */
+
+	gIterCount = 0;
+	while(-(((Real*)xn)->exponent)<sig) {
+		MEM_CHECK(r,VpVolume(xn)+VpVolume(x),msg)
+		VpMul(r,xn,x);     /* r = x**n/n */
+	  	VpAsgn(s,r,0);    
+		VpDiv(xn,r,s,c);   /* xn = xn*x/n! */
+		VpAdd(s,y,xn);
+		VpAsgn(y,s,0);
+		VpRdup((Real*)c,0);
+		if(++gIterCount>gMaxIter) {
+			VpException(y,"Maximum iteration count exhausted in VpExp()");
+			goto Exit;
+		}
+	}
+	goto Exit;
+
+ ErExit:
+	VpSetNaN(y);
+
+ Exit:
+	VpFree(&xn);
+	VpFree(&c);
+	VpFree(&s);
+	VpFree(&r);
+	return y;
+}
+
+/*
+   y = sin(x)
+*/
+VP_EXPORT(VP_HANDLE)
+	VpSin(VP_HANDLE y,VP_HANDLE x)
+{
+	VP_HANDLE s;
+	VP_HANDLE r;
+	VP_HANDLE c;
+	VP_HANDLE c2;
+	VP_HANDLE xn;
+	VP_HANDLE x2;
+	int       sig;
+
+	const char *msg = "Memory allocation error in VpSin()!";
+
+	if(y==x) {
+		return VpException(VpSetNaN(y),"Invalid operation in VpSin(input==output)!");
+	}
+
+	if(VpIsZero(x))              return VpSetZero(y,VP_SIGN(x));
+	if (!VpHasVal((VP_HANDLE)x)) return VpException(VpSetNaN(y),"Invalid argument for VpSin()");
+
+	sig = (int)(((VpCapacity(y)>VpCapacity(x))?VpCapacity(y):VpCapacity(x))+BASE_FIG+1);
+	x2 = VpAlloc("1",(VpVolume(x)+1)*2);
+	s  = VpAlloc("1",sig*2);
+	r  = VpAlloc("1",sig*2);
+	xn = VpAlloc("1",sig*2);
+	c  = VpAlloc("1",2);
+	c2 = VpAlloc("1",sig);
+
+	if(VpIsInvalid(s)||VpIsInvalid(r)||VpIsInvalid(xn)||VpIsInvalid(c)||VpIsInvalid(c2)||VpIsInvalid(x2)) {
+		   VpException(VpSetNaN(y),msg);
+		   goto Exit;
+	}
+
+	sig = ((Real*)y)->MaxPrec+1;
+	
+	VpMul(x2,x,x);
+	VpAsgn(xn,x,1);
+	VpAsgn(y,x,1); /* y = x */
+
+	gIterCount = 0;
+	int sign = 1;
+	while(-(((Real*)xn)->exponent)<=sig) {
+		MEM_CHECK(r,VpVolume(xn)+VpVolume(x2),msg)
+		VpMul(r,xn,x2);
+		VpAsgn(xn,r,0);
+		VpRdup((Real*)c,0);
+		VpAsgn(r,c,0);
+		VpRdup((Real*)c,0);
+		MEM_CHECK(c2,VpVolume(c)+VpVolume(r),msg)
+		VpMul(c2,c,r);
+		VpDiv(s,r,xn,c2);
+		VpAsgn(xn,s,0);
+		VpAddSub((Real*)r,(Real*)y,(Real*)xn,sign *= -1);
+		VpAsgn(y,r,0);
+		if(++gIterCount>gMaxIter) {
+			VpException(y,"Maximum iteration count exhausted in VpSin()");
+			goto Exit;
+		}
+	}
+	goto Exit;
+
+ ErExit:
+	VpSetNaN(y);
+
+ Exit:
+	VpFree(&x2);
+	VpFree(&xn);
+	VpFree(&c);
+	VpFree(&c2);
+	VpFree(&s);
+	VpFree(&r);
+	return y;
+}
+
+/*
+   y = cos(x)
+*/
+VP_EXPORT(VP_HANDLE)
+	VpCos(VP_HANDLE y,VP_HANDLE x)
+{
+	VP_HANDLE s;
+	VP_HANDLE r;
+	VP_HANDLE c;
+	VP_HANDLE c2;
+	VP_HANDLE xn;
+	VP_HANDLE x2;
+	int       sig;
+
+	const char *msg = "Memory allocation error in VpCos()!";
+
+	if(y==x) {
+		return VpException(VpSetNaN(y),"Invalid operation in VpCos(input==output)!");
+	}
+
+	if(VpIsZero(x))              return VpSetOne(y);
+	if (!VpHasVal((VP_HANDLE)x)) return VpException(VpSetNaN(y),"Invalid argument for VpCos()");
+
+	sig = (int)(((VpCapacity(y)>VpCapacity(x))?VpCapacity(y):VpCapacity(x))+BASE_FIG+1);
+	x2 = VpAlloc("1",(VpVolume(x)+1)*2);
+	s  = VpAlloc("1",sig*2);
+	r  = VpAlloc("1",sig*2);
+	xn = VpAlloc("1",sig*2);
+	c  = VpAlloc("0",2);
+	c2 = VpAlloc("1",sig);
+
+	if(VpIsInvalid(s)||VpIsInvalid(r)||VpIsInvalid(xn)||VpIsInvalid(c)||VpIsInvalid(c2)||VpIsInvalid(x2)) {
+		   VpException(VpSetNaN(y),msg);
+		   goto Exit;
+	}
+
+	sig = ((Real*)y)->MaxPrec+1;
+	
+	VpMul(x2,x,x);
+	VpSetOne(xn);
+	VpSetOne(y); /* y = 1 */
+	
+	((Real*)c)->sign = VP_SIGN_POSITIVE_FINITE;
+
+	gIterCount = 0;
+	int sign = 1;
+	while(-(((Real*)xn)->exponent)<=sig) {
+		MEM_CHECK(r,VpVolume(xn)+VpVolume(x2),msg)
+		VpMul(r,xn,x2);
+		VpAsgn(xn,r,0);
+		VpRdup((Real*)c,0);
+		VpAsgn(r,c,0);
+		VpRdup((Real*)c,0);
+		MEM_CHECK(c2,VpVolume(c)+VpVolume(r),msg)
+		VpMul(c2,c,r);
+		VpDiv(s,r,xn,c2);
+		VpAsgn(xn,s,0);
+		VpAddSub((Real*)r,(Real*)y,(Real*)xn,sign *= -1);
+		VpAsgn(y,r,0);
+		if(++gIterCount>gMaxIter) {
+			VpException(y,"Maximum iteration count exhausted in VpCos()");
+			goto Exit;
+		}
+	}
+	goto Exit;
+
+ ErExit:
+	VpSetNaN(y);
+
+ Exit:
+	VpFree(&x2);
+	VpFree(&xn);
+	VpFree(&c);
+	VpFree(&c2);
+	VpFree(&s);
+	VpFree(&r);
+	return y;
+}
+
+/*
+   y = arctan(x) -1<=x<= 1  (around |1| ==> not converge !)
+*/
+VP_EXPORT(VP_HANDLE)
+	VpAtan(VP_HANDLE y,VP_HANDLE x)
+{
+	VP_HANDLE s;
+	VP_HANDLE r;
+	VP_HANDLE c;
+	VP_HANDLE xn;
+	VP_HANDLE x2;
+	int       sig;
+
+	const char *msg = "Memory allocation error in VpAtan()!";
+
+	if(y==x) {
+		return VpException(VpSetNaN(y),"Invalid operation in VpAtan(input==output)!");
+	}
+
+	if(VpIsZero(x))              return VpSetZero(y,VP_SIGN(x));
+	if (!VpHasVal((VP_HANDLE)x)) return VpException(VpSetNaN(y),"Invalid argument for VpAtan()");
+
+	sig = (int)(((VpCapacity(y)>VpCapacity(x))?VpCapacity(y):VpCapacity(x))+BASE_FIG+1);
+	x2 = VpAlloc("1",(VpVolume(x)+1)*2);
+	s  = VpAlloc("1",sig*2);
+	r  = VpAlloc("1",sig*2);
+	xn = VpAlloc("1",sig*2);
+	c  = VpAlloc("1",2);
+
+	if(VpIsInvalid(s)||VpIsInvalid(r)||VpIsInvalid(xn)||VpIsInvalid(c)||VpIsInvalid(x2)) {
+		   VpException(VpSetNaN(y),msg);
+		   goto Exit;
+	}
+
+	sig = ((Real*)y)->MaxPrec+1;
+	
+	VpMul(x2,x,x);
+	VpAsgn(xn,x,1);
+	VpAsgn(y,x,1); /* y = x */
+	
+	((Real*)c)->sign = VP_SIGN_POSITIVE_FINITE;
+
+	gIterCount = 0;
+	int sign = 1;
+	while(-(((Real*)s)->exponent)<=sig) {
+		MEM_CHECK(r,VpVolume(xn)+VpVolume(x2),msg)
+		VpMul(r,xn,x2);
+		VpAsgn(xn,r,0);
+		VpRdup((Real*)c,0);
+		VpRdup((Real*)c,0);
+		VpDiv(s,r,xn,c);
+		VpAddSub((Real*)r,(Real*)y,(Real*)s,sign *= -1);
+		VpAsgn(y,r,0);
+		if(++gIterCount>gMaxIter) {
+			VpException(y,"Maximum iteration count exhausted in VpAtan()");
+			goto Exit;
+		}
+	}
+	goto Exit;
+
+ ErExit:
+	VpSetNaN(y);
+
+ Exit:
+	VpFree(&x2);
+	VpFree(&xn);
+	VpFree(&c);
+	VpFree(&s);
+	VpFree(&r);
+	return y;
+}
+
+/*
+   y = log(x)  0<x<= 2  (around 2 ==> may not converge !)
+*/
+VP_EXPORT(VP_HANDLE)
+	VpLog(VP_HANDLE y,VP_HANDLE x)
+{
+	VP_HANDLE s;
+	VP_HANDLE r;
+	VP_HANDLE c;
+	VP_HANDLE xn;
+	VP_HANDLE x1;
+	int       sig;
+
+	const char *msg = "Memory allocation error in VpLog()!";
+
+	if(y==x) {
+		return VpException(VpSetNaN(y),"Invalid operation in VpLog(input==output)!");
+	}
+
+	if(VpGetSign(x)<0)           return VpException(VpSetNaN(y),"Invalid argument for VpLog( Negative )");
+	if(VpIsOne(x))               return VpSetZero(y,VP_SIGN(x));
+	if (!VpHasVal((VP_HANDLE)x)) return VpException(VpSetNaN(y),"Invalid argument for VpLog()");
+
+	sig = (int)(((VpCapacity(y)>VpCapacity(x))?VpCapacity(y):VpCapacity(x))+BASE_FIG+1);
+	c  = VpAlloc("1",2);
+	x1 = VpAlloc("1",(VpVolume(x)+1)*2);
+	s  = VpAlloc("1",sig*2);
+	r  = VpAlloc("1",sig*2);
+	xn = VpAlloc("1",sig*2);
+
+	if(VpIsInvalid(s)||VpIsInvalid(r)||VpIsInvalid(xn)||VpIsInvalid(c)||VpIsInvalid(x1)) {
+		   VpException(VpSetNaN(y),msg);
+		   goto Exit;
+	}
+
+	sig = ((Real*)y)->MaxPrec+1;
+	VpSub(x1,x,c);  /* x = x - 1 */
+	if(VpCmp(x1,c)>0) {
+		VpException(VpSetNaN(y),"Invalid argument for VpLog( x>2 )!");
+		goto Exit;
+	}
+	VpAsgn(xn,x1,1);
+	VpAsgn(y,x1,1); /* y = x */
+	
+	gIterCount = 0;
+	int sign = 1;
+	while(-(((Real*)s)->exponent)<=sig) {
+		MEM_CHECK(r,VpVolume(xn)+VpVolume(x1),msg)
+		VpMul(r,xn,x1);
+		VpAsgn(xn,r,0);
+		VpRdup((Real*)c,0);
+		VpDiv(s,r,xn,c);
+		VpAddSub((Real*)r,(Real*)y,(Real*)s,sign *= -1);
+		VpAsgn(y,r,0);
+		if(++gIterCount>gMaxIter) {
+			VpRdup((Real*)y,0);
+			VpException(y,"Maximum iteration count exhausted in VpAtan()");
+			goto Exit;
+		}
+	}
+	VpRdup((Real*)y,0);
+	goto Exit;
+
+ ErExit:
+	VpSetNaN(y);
+
+ Exit:
+	VpFree(&x1);
+	VpFree(&xn);
+	VpFree(&c);
+	VpFree(&s);
+	VpFree(&r);
+	return y;
+}
 
 #ifdef _DEBUG
 void DbgAssert(int  f,char *file,int line)
@@ -2537,4 +2889,3 @@ void DbgAssert(int  f,char *file,int line)
 	getchar();
 }
 #endif // _DEBUG
-

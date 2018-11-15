@@ -30,8 +30,6 @@ void    DbgAssert(int  f,char *file,int line);
 #define TRACE(s)
 #endif // _DEBUG
 
-#define maxnr 100UL          /* Maximum iterations for calcurating sqrt. */
-
 /*
  *  ------------------
  *  MACRO definitions.
@@ -46,15 +44,7 @@ void    DbgAssert(int  f,char *file,int line);
 
 
 // Alloc/Free macros
-#define VP_ALLOC_REAL(n)    ((Real*)VpAllocReal((n)*BASE_FIG))
 #define VP_FREE_REAL(p)     VpFree((VP_HANDLE*)(&p))
 #define VP_SIGN(p)          ((Real*)p)->sign
 #define VP_FINITE_SIGN(p,s) VP_SIGN(p) = (s)>0?VP_SIGN_POSITIVE_FINITE:VP_SIGN_NEGATIVE_FINITE
 #define VP_EXPONENT(a)      (a->exponent)
-
-typedef struct {
-    double value;
-    int    exponent;
-    int    shifted; // exponent+shifted will be multiple of BASE_FIG.
-} FRACTION;
-

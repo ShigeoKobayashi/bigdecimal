@@ -67,21 +67,28 @@ extern "C" {
 #define VP_DIGIT   unsigned long       /* Fraction part array (can be 64-bit:unsigned long long)   */
 #define VP_UINT    size_t              /* Common unsigned part   */
 
+/* VP-exception handle called from VP-routines if needed(error case). */
+typedef void (VP_EXCEPTION_HANDLER)(VP_HANDLE h,const char *pszMsg);
+VP_EXPORT(void) VpSetExceptionHandler(VP_EXCEPTION_HANDLER *pf);
+
+VP_EXPORT(VP_UINT) VpGetUserArea(VP_HANDLE h);
+VP_EXPORT(void   ) VpSetUserArea(VP_HANDLE h,VP_UINT userarea);
+
 /*
  * VP representation
  *  r = 0.xxxxxxxxx *BASE**exponent
  */
 typedef struct {
 	VP_UINT   Size;    /* all byte size of this structure(used in realloc() case).  */
-    VP_UINT   MaxPrec; /* Maximum precision size                   */
-                       /* This is the actual size of frac[]        */
-                       /*(frac[0] to frac[MaxPrec] are available). */
-    VP_UINT   Prec;    /* Current precision size.                  */
-                       /* This indicates how much the.             */
-                       /* the array frac[] is actually used.       */
-	VP_UINT   Dummy;   /* Dummy for structure alignment (8byte)    */
-    int       exponent;/* Exponent part.                           */
-    int       sign;    /* Attributes of the value.                 */
+    VP_UINT   MaxPrec; /* Maximum precision size                          */
+                       /* This is the actual size of frac[]               */
+                       /*(frac[0] to frac[MaxPrec] are available).        */
+    VP_UINT   Prec;    /* Current precision size.                         */
+                       /* This indicates how much the.                    */
+                       /* the array frac[] is actually used.              */
+	VP_UINT   UserArea;/* Space for the user(BigDecimal never touch this) */
+    int       exponent;/* Exponent part.                                  */
+    int       sign;    /* Attributes of the value.                        */
                        /*
                         *        ==0 : NaN
                         *          1 : Positive zero
@@ -111,7 +118,7 @@ typedef struct {
 #define VP_ERROR_BAD_HANDLE         2
 #define VP_ERROR_MEMORY_ALLOCATION  3
 #define VP_ERROR_NOT_CONVERGED      4  /* Iteration not converged, */
-#define VP_ERROR_BAD_LEFT           9  /* Bad left */
+#define VP_ERROR_RESULT_NON_NUMERIC 9  /* Bad operation */
 
 /*
  *  NaN & Infinity
@@ -135,14 +142,24 @@ VP_EXPORT(VP_HANDLE) VpAlloc(char *szVal,VP_UINT mx);
 VP_EXPORT(int)       VpAllocCount(); /* returns VP_HANDLE allocation count */
 VP_EXPORT(VP_HANDLE) VpClone(VP_HANDLE p);
 VP_EXPORT(void)      VpFree(VP_HANDLE *p);
-VP_EXPORT(int)       VpPrintE(FILE *fp, VP_HANDLE h);
-VP_EXPORT(VP_UINT)   VpEffectiveDigits(VP_HANDLE h);
+VP_EXPORT(int)  	 VpExponent(VP_HANDLE h);
 VP_EXPORT(VP_UINT)   VpCapacity(VP_HANDLE h);
+VP_EXPORT(VP_UINT)   VpVolume(VP_HANDLE h);
+VP_EXPORT(VP_UINT)   VpEffectiveDigits(VP_HANDLE h);
+
+
+VP_EXPORT(VP_UINT)   VpGetDigitSeparationCount();          /* default = 10 */
+VP_EXPORT(VP_UINT)   VpSetDigitSeparationCount(VP_UINT m);
+VP_EXPORT(char)      VpGetDigitSeparator();                /* default = ' ' */
+VP_EXPORT(char)      VpSetDigitSeparator(char c);    
+VP_EXPORT(char)      VpGetDigitLeader();                   /* default = ' ' */
+VP_EXPORT(char)      VpSetDigitLeader(char c);
+VP_EXPORT(int)       VpPrintE(FILE *fp, VP_HANDLE h);
+VP_EXPORT(int)       VpPrintF(FILE *fp, VP_HANDLE h);
 VP_EXPORT(VP_UINT)   VpStringLengthE(VP_HANDLE h);
 VP_EXPORT(VP_UINT)   VpStringLengthF(VP_HANDLE h);
 VP_EXPORT(char *)    VpToStringE(VP_HANDLE h,char *sz);
 VP_EXPORT(char *)    VpToStringF(VP_HANDLE h,char *sz);
-VP_EXPORT(int)  	 VpExponent(VP_HANDLE h);
 
 
 /* Sign */
@@ -175,13 +192,6 @@ VP_EXPORT(VP_HANDLE) VpSetPosInf(VP_HANDLE a);
 VP_EXPORT(VP_HANDLE) VpSetNegInf(VP_HANDLE a);
 VP_EXPORT(VP_HANDLE) VpSetInf(VP_HANDLE a,int s);
 
-VP_EXPORT(VP_UINT)   VpGetDigitSeparationCount();
-VP_EXPORT(VP_UINT)   VpSetDigitSeparationCount(VP_UINT m);
-VP_EXPORT(char)      VpGetDigitSeparator();
-VP_EXPORT(char)      VpSetDigitSeparator(char c);
-VP_EXPORT(char)      VpGetDigitLeader();
-VP_EXPORT(char)      VpSetDigitLeader(char c);
-
 VP_EXPORT(int)       VpGetRoundMode();
 VP_EXPORT(int)       VpSetRoundMode(int m);
 VP_EXPORT(VP_HANDLE) VpAdd(VP_HANDLE c,VP_HANDLE a,VP_HANDLE b);
@@ -190,12 +200,26 @@ VP_EXPORT(VP_HANDLE) VpMul(VP_HANDLE c,VP_HANDLE a,VP_HANDLE b);
 VP_EXPORT(VP_HANDLE) VpDiv(VP_HANDLE c, VP_HANDLE r, VP_HANDLE a, VP_HANDLE b);
 VP_EXPORT(int)       VpCmp(VP_HANDLE a, VP_HANDLE b);
 VP_EXPORT(VP_HANDLE) VpAsgn(VP_HANDLE C, VP_HANDLE A, int isw);
+VP_EXPORT(VP_HANDLE) VpAsgn2(VP_HANDLE C, VP_HANDLE A, int isw,int round);
 VP_EXPORT(VP_HANDLE) VpScaleRound(VP_HANDLE p, int ixRound);
 VP_EXPORT(VP_HANDLE) VpLengthRound(VP_HANDLE p, int ixRound);
 VP_EXPORT(VP_HANDLE) VpScaleRound2(VP_HANDLE p, int ixRound,int mode);
 VP_EXPORT(VP_HANDLE) VpLengthRound2(VP_HANDLE p, int ixRound,int mode);
+VP_EXPORT(VP_HANDLE) VpFrac(VP_HANDLE y, VP_HANDLE x);
+#define VpFix(c)     VpScaleRound2(c,0,VP_ROUND_DOWN))
 
-
+/* Math function */
+VP_EXPORT(VP_UINT)   VpGetMaxIterationCount();
+VP_EXPORT(VP_UINT)   VpSetMaxIterationCount(VP_UINT c);
+VP_EXPORT(VP_UINT)   VpGetIterationCount();
+VP_EXPORT(VP_HANDLE) VpSqrt(VP_HANDLE hy, VP_HANDLE hx);
+VP_EXPORT(VP_HANDLE) VpPower(VP_HANDLE hy, VP_HANDLE hx, int n);
+VP_EXPORT(VP_HANDLE) VpPI(VP_HANDLE h); /* h = PI */
+VP_EXPORT(VP_HANDLE) VpExp(VP_HANDLE y,VP_HANDLE x);
+VP_EXPORT(VP_HANDLE) VpSin(VP_HANDLE y,VP_HANDLE x);
+VP_EXPORT(VP_HANDLE) VpCos(VP_HANDLE y,VP_HANDLE x);
+VP_EXPORT(VP_HANDLE) VpAtan(VP_HANDLE y,VP_HANDLE x);
+VP_EXPORT(VP_HANDLE) VpLog(VP_HANDLE y,VP_HANDLE x);
 
 #if defined(__cplusplus)
 }  /* extern "C" { */
