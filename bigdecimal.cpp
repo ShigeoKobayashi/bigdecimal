@@ -1116,6 +1116,35 @@ VP_EXPORT(int)
     return ex;
 }
 
+/*
+ *  y = x - frac(x)
+ */
+VP_EXPORT(VP_HANDLE)
+	VpFix(VP_HANDLE hy, VP_HANDLE hx)
+{
+    VP_UINT my, ind_y;
+	Real *y = (Real*)hy;
+	Real *x = (Real*)hx;
+
+	if(!VpIsNumeric(hx))         return VpException(VpSetNaN(hy),"Non-numeric specified to VpFix()!");
+    if(!VpHasVal((VP_HANDLE)x))  return VpAsgn((VP_HANDLE)y,(VP_HANDLE)x,1);
+    if (x->exponent <= 0)        return VpSetZero((VP_HANDLE)y,VP_SIGN(x));
+
+    /* satisfy: x->exponent > 0 */
+
+    y->Prec = (VP_UINT)x->exponent;
+    y->Prec = Min(y->Prec, y->MaxPrec);
+    y->exponent = 0;
+    VP_FINITE_SIGN(y,VP_SIGN(x));
+    ind_y = 0;
+    my = y->Prec;
+    while(ind_y < my) {
+        y->frac[ind_y] = x->frac[ind_y];
+	    y->exponent++;
+        ++ind_y;
+    }
+    return VpNmlz(y);
+}
 
 /*
  *  y = x - fix(x)
@@ -1127,6 +1156,7 @@ VP_EXPORT(VP_HANDLE)
 	Real *y = (Real*)hy;
 	Real *x = (Real*)hx;
 
+	if(!VpIsNumeric(hx))                                    return VpException(VpSetNaN(hy),"Non-numeric specified to VpFrac()!");
     if(!VpHasVal((VP_HANDLE)x))                             return VpAsgn((VP_HANDLE)y,(VP_HANDLE)x,1);
     if (x->exponent > 0 && (VP_UINT)x->exponent >= x->Prec) return VpSetZero((VP_HANDLE)y,VP_SIGN(x));
 	else if(x->exponent <= 0)                               return VpAsgn((VP_HANDLE)y, (VP_HANDLE)x, 1);
@@ -1690,13 +1720,12 @@ VP_EXPORT(int)
 
 /*
   prints  VP h in F format(xxxxx.yyyyy..).
-  currently DigitSeparator does not function.
  */
 VP_EXPORT(int)
 	VpPrintF(FILE *fp, VP_HANDLE h)
 {
 	Real *a  = (Real*)h;
-    VP_UINT   i, n, nc;
+    VP_UINT   i, n, nb, nc;
     VP_DIGIT  m, e, nn;
     int       ex;
 
@@ -1719,42 +1748,92 @@ VP_EXPORT(int)
 		}
 	}
 
+	nb = 0;
     n  = a->Prec;
     ex = a->exponent;
     if(ex<=0) {
        nc += fprintf(fp,"0.");
        while(ex<0) {
           for(i=0;i<BASE_FIG;++i) {
+				if(gDigitSeparationCount>0 && nb>=gDigitSeparationCount) {
+					nc += fprintf(fp, "%c", (char)gDigitSeparator);
+					nb = 0;
+				}
 				nc += fprintf(fp,"0");
+				nb++;
 		  }
           ++ex;
        }
        ex = -1;
-    }
+    } else {
+		nb = ex*BASE_FIG;
+        m = BASE1;
+        e = a->frac[0];
+        while(m && !(e/ m) ) {
+           m /= 10;
+		   nb--;
+        }
+		if(gDigitSeparationCount>0) {
+			nb = gDigitSeparationCount - (nb % gDigitSeparationCount);
+			if(nb>=gDigitSeparationCount) nb = 0;
+		}
+	}
 
     for(i=0;i < n;++i) {
        --ex;
+       m = BASE1;
+       e = a->frac[i];
        if(i==0 && ex >= 0) {
-           nc += fprintf(fp, "%lu", (unsigned long)a->frac[i]);
+		   int isw = 0;
+	        while(m) {
+                nn = e / m;
+			    if(nn || isw) {
+					isw = 1;
+					if(gDigitSeparationCount>0 && nb>=gDigitSeparationCount) {
+						if(ex != 0 || (i+1)>=n) nc += fprintf(fp, "%c", (char)gDigitSeparator);
+						nb = 0;
+					}
+					nc += fprintf(fp,"%c",(char)(nn + '0'));
+					nb++;
+			    }
+                e = e - nn * m;
+                m /= 10;
+			}
        } else {
-           m = BASE1;
-           e = a->frac[i];
            while(m) {
-               nn = e / m;
-               nc += fprintf(fp,"%c",(char)(nn + '0'));
-               e = e - nn * m;
-               m /= 10;
+				nn = e / m;
+				if(gDigitSeparationCount>0 && nb>=gDigitSeparationCount) {
+					if(ex != 0 || (i+1)>=n) nc += fprintf(fp, "%c", (char)gDigitSeparator);
+					nb = 0;
+				}
+				nb++;
+				if((nn==0) && (i+1)==n && e==0) break;
+                nc += fprintf(fp,"%c",(char)(nn + '0'));
+				// if((nn==0) && (i+1)==n) break;
+                e = e - nn * m;
+                m /= 10;
            }
        }
-       if(ex == 0 && (i+1)<n) nc += fprintf(fp,".");
+       if(ex == 0 && (i+1)<n) {
+		   nc += fprintf(fp,".");
+		   nb = 0;
+	   }
     }
     while(--ex>=0) {
-       m = BASE;
-       while(m/=10) nc += fprintf(fp,"0");
+        m = BASE;
+        while(m/=10) {
+		    if(gDigitSeparationCount>0 && nb>=gDigitSeparationCount) {
+				nc += fprintf(fp, "%c", (char)gDigitSeparator);
+				nb = 0;
+			}
+			nb++;
+		    nc += fprintf(fp,"0");
+	   }
        // if(ex == 0) nc += fprintf(fp,".");
     }
 	return nc;
 }
+
 
 /*
  *  returns number of chars needed to represent h in specified format.

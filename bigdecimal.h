@@ -206,7 +206,8 @@ VP_EXPORT(VP_HANDLE) VpLengthRound(VP_HANDLE p, int ixRound);
 VP_EXPORT(VP_HANDLE) VpScaleRound2(VP_HANDLE p, int ixRound,int mode);
 VP_EXPORT(VP_HANDLE) VpLengthRound2(VP_HANDLE p, int ixRound,int mode);
 VP_EXPORT(VP_HANDLE) VpFrac(VP_HANDLE y, VP_HANDLE x);
-#define VpFix(c)     VpScaleRound2(c,0,VP_ROUND_DOWN))
+VP_EXPORT(VP_HANDLE) VpFix(VP_HANDLE y,VP_HANDLE x);
+#define VpInt(x,y)   VpFix(x,y)
 
 /* Math function */
 VP_EXPORT(VP_UINT)   VpGetMaxIterationCount();
