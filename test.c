@@ -1,56 +1,51 @@
-// Test.cpp : コンソール アプリケーションのエントリ ポイントを定義します。
-//
-
-#include "stdafx.h"
-#include <limits.h>
-
+#include <stdio.h>
 #include "bigdecimal.h"
 
+#define F(H,V) printf(H);VpPrintF(stdout,V);printf("\n");
+#define E(H,V) printf(H);VpPrintE(stdout,V);printf("\n");
+
+void test1()
+{
+    VP_HANDLE sqrt2 = VpAlloc("0",100);
+    VP_HANDLE pi    = VpAlloc("0",100);
+    VP_HANDLE pi2   = VpAlloc("0",100);
+    VP_HANDLE one   = VpAlloc("0",100);
+    VP_HANDLE two   = VpAlloc("2",1);
+	VP_HANDLE r;
+	VP_UINT   m;
+
+	F("Sqrt(2)    =",VpSqrt(sqrt2,two));                 /* sqrt2 = sqrt(2) */
+	VpFree(&two);two = VpAlloc("0",VpCurLength(sqrt2)*2+1);
+	F("Sqrt(2)**2=",VpMul(two,sqrt2,sqrt2));             /* two = sqrt(2)**2  ==> 2.0 */
+	F("pi        =",VpPI(pi));                           /* pi  = 3.141592...         */
+	m = VpCurLength(pi)+VpCurLength(two)+1;
+    if(m<VpMaxLength(pi2)) m = VpMaxLength(pi2)+1;
+    r = VpAlloc("0",m);
+	F("pi2       =",VpDiv(pi2,r,pi,two));                /* pi2 = pi/2 */
+	E("sin(pi2)  =",VpSin(one,pi2));                     /* one = sin(pi/2)   ==> 1.0 */
+	VpFree(&sqrt2);
+	VpFree(&pi);
+	VpFree(&pi2);
+	VpFree(&one);
+	VpFree(&two);
+	VpFree(&r);
+}
+void test2()
+{
+	VP_HANDLE c = VpAlloc("5555555555.5555555555",1);
+	VP_HANDLE a = VpAlloc("0",VpMaxLength(c));
+    VpAsgn(a,c,1);	F("ScaleRound ( 0)= ",VpScaleRound (c, 0));
+    VpAsgn(c,a,1); 	F("ScaleRound ( 2)= ",VpScaleRound (c, 2));
+    VpAsgn(c,a,1);	F("ScaleRound (-2)= ",VpScaleRound (c,-2));
+    VpAsgn(c,a,1);	F("LengthRound(12)= ",VpLengthRound(c,12));
+    VpAsgn(c,a,1);	F("LengthRound( 8)= ",VpLengthRound(c, 8));
+	VpFree(&a);
+	VpFree(&c);
+}
 int main(int argc, char* argv[])
 {
-	VP_HANDLE h,h1;
-	char sz[1000];
-	char *psz;
-	unsigned long long V;
-	unsigned long long v = 1000000000ULL; // 64-bit BASE
-	unsigned long      uv = 10000L;       // 32-bit BASE
-
-	printf("ULONG_MAX=%lu\n",ULONG_MAX);
-	printf("v        =%llu\n",v);
-	printf("uv*uv+uv =%llu\n",((unsigned long long)uv)*((unsigned long long)uv)+uv);
-	printf("ULONG_MAX=%llu\n",ULLONG_MAX);
-	printf("v*v+v    =%llu\n",v*v+v);
-	printf("sizeof=%d\n",sizeof(unsigned long long));
-
-
-
-	h  = VpAlloc("1245678901234567890.12345678901234567890",0);
-	h1 = VpAlloc("12456",0);
-	printf("Asign=");VpPrintE(stdout,VpAsgn(h,h1,1));printf("\n");
-
-
-	printf("%s\n",psz=VpToStringF(h,sz));
-	printf("max=%d, len=%d\n",VpStringLengthF(h),strlen(psz));
-	printf("%s\n",psz=VpToStringE(h,sz));
-	printf("max=%d, len=%d\n",VpStringLengthE(h),strlen(psz));
-	printf("\n");
-
-
-
-
-
-
-	VpPrintE(stdout,VpAlloc("0 . 000012 3456 7890123456 7890123456 7890 E6",10));printf("\n");
-	VpPrintE(stdout,VpAlloc("0.0000123456789012345678 901234567890E5",10));printf("\n");
-	VpPrintE(stdout,VpAlloc("0.000012345678 9012345678901234567890E4",10));printf("\n");
-	VpPrintE(stdout,VpAlloc("0.000012345678901 2345678901234567890E3",10));printf("\n");
-	VpPrintE(stdout,VpAlloc("- 1234567.89012345678901234567890e+333",10));printf("\n");
-	VpPrintE(stdout,VpAlloc("123456.7890123456789012345 67890e+333",10));printf("\n");
-	VpPrintE(stdout,VpAlloc("-12345 .67890123 45678901234567890e+333",10));printf("\n");
-	VpPrintE(stdout,VpAlloc("1234. 56789012345678901234567890e+333",10));printf("\n");
-    printf("Allocs=%d\n",VpAllocCount());
-
-	getchar();
+	test1();
+	test2();
 	return 0;
 }
 

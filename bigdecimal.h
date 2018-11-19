@@ -98,7 +98,7 @@ typedef struct {
                         *          3 : Positive infinite number
                         *         -3 : Negative infinite number
                         */
-    VP_DIGIT   frac[1]; /* Array of fraction part. */
+    VP_DIGIT   frac[1]; /* Array of fraction part. [1] is intensional. */
 } Real;
 
 #define VP_SIGN_NaN                0 /* NaN                      */
@@ -143,8 +143,8 @@ VP_EXPORT(int)       VpAllocCount(); /* returns VP_HANDLE allocation count */
 VP_EXPORT(VP_HANDLE) VpClone(VP_HANDLE p);
 VP_EXPORT(void)      VpFree(VP_HANDLE *p);
 VP_EXPORT(int)  	 VpExponent(VP_HANDLE h);
-VP_EXPORT(VP_UINT)   VpCapacity(VP_HANDLE h);
-VP_EXPORT(VP_UINT)   VpVolume(VP_HANDLE h);
+VP_EXPORT(VP_UINT)   VpMaxLength(VP_HANDLE h);
+VP_EXPORT(VP_UINT)   VpCurLength(VP_HANDLE h);
 VP_EXPORT(VP_UINT)   VpEffectiveDigits(VP_HANDLE h);
 
 
@@ -154,6 +154,7 @@ VP_EXPORT(char)      VpGetDigitSeparator();                /* default = ' ' */
 VP_EXPORT(char)      VpSetDigitSeparator(char c);    
 VP_EXPORT(char)      VpGetDigitLeader();                   /* default = ' ' */
 VP_EXPORT(char)      VpSetDigitLeader(char c);
+
 VP_EXPORT(int)       VpPrintE(FILE *fp, VP_HANDLE h);
 VP_EXPORT(int)       VpPrintF(FILE *fp, VP_HANDLE h);
 VP_EXPORT(VP_UINT)   VpStringLengthE(VP_HANDLE h);
@@ -166,8 +167,8 @@ VP_EXPORT(char *)    VpToStringF(VP_HANDLE h,char *sz);
 /* Change sign of a to a>0,a<0 if s = 1,-1 respectively */
 VP_EXPORT(VP_HANDLE) VpSetSign(VP_HANDLE a,int s);
 VP_EXPORT(int)       VpGetSign(VP_HANDLE a);
-VP_EXPORT(VP_HANDLE) VpRevertSign(VP_HANDLE a,int s); /* Negate */
-
+VP_EXPORT(VP_HANDLE) VpRevertSign(VP_HANDLE a); /* Negate */
+#define VpNegate(a)  VpRevertSign(a)
 /* 1 */
 VP_EXPORT(int)       VpIsOne(VP_HANDLE a);
 VP_EXPORT(VP_HANDLE) VpSetOne(VP_HANDLE a);

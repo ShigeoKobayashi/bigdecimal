@@ -107,8 +107,8 @@ static int
 static Real *
 	VpAllocReal(VP_UINT m)
 {
-	int    mx  = (m+BASE_FIG-1)/BASE_FIG + 2; 
-	VP_UINT s  = sizeof(Real)+mx*sizeof(VP_DIGIT);
+	int    mx  = (m+BASE_FIG-1)/BASE_FIG + 1; 
+	VP_UINT s  = sizeof(Real)+mx*sizeof(VP_DIGIT); /* frac[] has mx+1 elements(intensional) */
 	Real  *p   = (Real*)malloc(s);
 
 	ASSERT(p!=NULL);
@@ -819,7 +819,7 @@ static void
  *   c = a / b,  remainder = r
  *   Because 'r = a - c * b' must be satisfied,
  *   following conditions are mandatory,otherwise NaN returned.
- *      r->MaxPrec > a->Prec 
+ *      r->MaxPrec > max(a->Prec,c-Prec+b->Prec) 
  */
 VP_EXPORT(VP_HANDLE)
 	VpDiv(VP_HANDLE hc, VP_HANDLE hr, VP_HANDLE ha, VP_HANDLE hb)
@@ -1355,7 +1355,7 @@ static VP_HANDLE
         }
         if (i < ni) {
             ++ind_a;
-            ASSERT(ind_a < ma);
+            ASSERT(ind_a <= ma); /* Because a->frac has (ma+1) elements */
             j = 0;
         }
    }
@@ -1371,11 +1371,11 @@ static VP_HANDLE
         }
         if (i < nf) {
             ++ind_a;
-            ASSERT(ind_a < ma);
+            ASSERT(ind_a <= ma);  /* Because a->frac has (ma+1) elements */
             j = 0;
         }
     }
-    ASSERT(ind_a < ma);
+    ASSERT(ind_a <= ma);  /* Because a->frac has (ma+1) elements */
     while (j < BASE_FIG) {
         a->frac[ind_a] = a->frac[ind_a] * 10;
         ++j;
@@ -1384,6 +1384,7 @@ static VP_HANDLE
     a->exponent = eb;
     VP_FINITE_SIGN(a,sign);
     VpNmlz(a);
+	ASSERT(a->Prec<=a->MaxPrec);
 	return (VP_HANDLE)a;
 }
 
@@ -1444,7 +1445,7 @@ VP_EXPORT(char) VpSetDigitLeader(char c) {
 /* Change sign of a to a>0,a<0 if s = 1,-1 respectively */
 VP_EXPORT(VP_HANDLE) VpSetSign(VP_HANDLE a,int s)    {if((s)>0) ((Real*)a)->sign=(short)Abs((int)((Real*)a)->sign);else ((Real*)a)->sign=-(short)Abs((int)((Real*)a)->sign);return a;}
 VP_EXPORT(int)       VpGetSign(VP_HANDLE a)          {return (int)((Real*)a)->sign;}
-VP_EXPORT(VP_HANDLE) VpRevertSign(VP_HANDLE a,int s) {((Real*)a)->sign=-(((Real*)a)->sign);return a;}
+VP_EXPORT(VP_HANDLE) VpRevertSign(VP_HANDLE a)       {((Real*)a)->sign=-(((Real*)a)->sign);return a;}
 
 /* 1 */
 VP_EXPORT(VP_HANDLE) VpSetOne(VP_HANDLE a)       {
@@ -1475,8 +1476,8 @@ VP_EXPORT(VP_HANDLE) VpSetPosInf(VP_HANDLE a) { (((Real*)a)->frac[0]=0,((Real*)a
 VP_EXPORT(VP_HANDLE) VpSetNegInf(VP_HANDLE a) { (((Real*)a)->frac[0]=0,((Real*)a)->Prec=1,((Real*)a)->sign=VP_SIGN_NEGATIVE_INFINITE);return a;}
 VP_EXPORT(VP_HANDLE) VpSetInf(VP_HANDLE a,int s)  { ( ((s)>0)?VpSetPosInf(a):VpSetNegInf(a) );return a;}
 VP_EXPORT(int)       VpIsOne(VP_HANDLE a)     { return (((Real*)a)->Prec==1 &&((Real*)a)->frac[0]==1 && ((Real*)a)->exponent==1);}
-VP_EXPORT(VP_UINT)   VpCapacity(VP_HANDLE h)  { return ((Real*)h)->MaxPrec*BASE_FIG;}
-VP_EXPORT(VP_UINT)   VpVolume(VP_HANDLE h)    { return ((Real*)h)->Prec*BASE_FIG;}
+VP_EXPORT(VP_UINT)   VpMaxLength(VP_HANDLE h)  { return ((Real*)h)->MaxPrec*BASE_FIG;}
+VP_EXPORT(VP_UINT)   VpCurLength(VP_HANDLE h)    { return ((Real*)h)->Prec*BASE_FIG;}
 
 /*
  return number of effective digits.
@@ -1728,6 +1729,7 @@ VP_EXPORT(int)
     VP_UINT   i, n, nb, nc;
     VP_DIGIT  m, e, nn;
     int       ex;
+	int       fdot = 0;
 
 	if(VpIsInvalid(h))  {
 		return fprintf(fp,"?? Not VP??");
@@ -1753,6 +1755,7 @@ VP_EXPORT(int)
     ex = a->exponent;
     if(ex<=0) {
        nc += fprintf(fp,"0.");
+	   fdot = 1;
        while(ex<0) {
           for(i=0;i<BASE_FIG;++i) {
 				if(gDigitSeparationCount>0 && nb>=gDigitSeparationCount) {
@@ -1807,9 +1810,8 @@ VP_EXPORT(int)
 					nb = 0;
 				}
 				nb++;
-				if((nn==0) && (i+1)==n && e==0) break;
+				if( (i+1)==n && e==0 && fdot ) break;
                 nc += fprintf(fp,"%c",(char)(nn + '0'));
-				// if((nn==0) && (i+1)==n) break;
                 e = e - nn * m;
                 m /= 10;
            }
@@ -1817,6 +1819,7 @@ VP_EXPORT(int)
        if(ex == 0 && (i+1)<n) {
 		   nc += fprintf(fp,".");
 		   nb = 0;
+		   fdot = 1;
 	   }
     }
     while(--ex>=0) {
@@ -1829,7 +1832,6 @@ VP_EXPORT(int)
 			nb++;
 		    nc += fprintf(fp,"0");
 	   }
-       // if(ex == 0) nc += fprintf(fp,".");
     }
 	return nc;
 }
@@ -2505,7 +2507,7 @@ converge:
 }
 
 #define MEM_CHECK(c,m,msg)  \
-if(VpCapacity(c)<=(m)) {\
+if(VpMaxLength(c)<=(m)) {\
 	VpFree(&c);\
 	c=(VP_HANDLE)VpAllocReal((m+BASE_FIG));\
 	if(VpIsInvalid(c)) {VpException(c,msg);goto ErExit;}\
@@ -2522,7 +2524,7 @@ VP_EXPORT(VP_HANDLE)
 	int     exp;
 	VP_UINT sig;
 
-	sig    = VpCapacity(pi);
+	sig    = VpMaxLength(pi);
 	sig   += BASE_FIG*2+1;
 	pi     = VpSetPosZero(pi);
 
@@ -2613,7 +2615,7 @@ VP_EXPORT(VP_HANDLE)
 	if(VpIsZero(x))              return VpSetOne(y);
 	if (!VpHasVal((VP_HANDLE)x)) return VpException(VpSetNaN(y),"Invalid argument for VpExp()");
 
-	sig = (int)VpCapacity(y)+BASE_FIG+1;
+	sig = (int)VpMaxLength(y)+BASE_FIG+1;
 	s  = VpAlloc("1",sig*2);
 	r  = VpAlloc("1",sig*2);
 	xn = VpAlloc("1",sig*2);
@@ -2632,7 +2634,7 @@ VP_EXPORT(VP_HANDLE)
 
 	gIterCount = 0;
 	while(-(((Real*)xn)->exponent)<sig) {
-		MEM_CHECK(r,VpVolume(xn)+VpVolume(x),msg)
+		MEM_CHECK(r,VpCurLength(xn)+VpCurLength(x),msg)
 		VpMul(r,xn,x);     /* r = x**n/n */
 	  	VpAsgn(s,r,0);    
 		VpDiv(xn,r,s,c);   /* xn = xn*x/n! */
@@ -2680,8 +2682,8 @@ VP_EXPORT(VP_HANDLE)
 	if(VpIsZero(x))              return VpSetZero(y,VP_SIGN(x));
 	if (!VpHasVal((VP_HANDLE)x)) return VpException(VpSetNaN(y),"Invalid argument for VpSin()");
 
-	sig = (int)(((VpCapacity(y)>VpCapacity(x))?VpCapacity(y):VpCapacity(x))+BASE_FIG+1);
-	x2 = VpAlloc("1",(VpVolume(x)+1)*2);
+	sig = (int)(((VpMaxLength(y)>VpMaxLength(x))?VpMaxLength(y):VpMaxLength(x))+BASE_FIG+1);
+	x2 = VpAlloc("1",(VpCurLength(x)+1)*2);
 	s  = VpAlloc("1",sig*2);
 	r  = VpAlloc("1",sig*2);
 	xn = VpAlloc("1",sig*2);
@@ -2702,13 +2704,13 @@ VP_EXPORT(VP_HANDLE)
 	gIterCount = 0;
 	int sign = 1;
 	while(-(((Real*)xn)->exponent)<=sig) {
-		MEM_CHECK(r,VpVolume(xn)+VpVolume(x2),msg)
+		MEM_CHECK(r,VpCurLength(xn)+VpCurLength(x2),msg)
 		VpMul(r,xn,x2);
 		VpAsgn(xn,r,0);
 		VpRdup((Real*)c,0);
 		VpAsgn(r,c,0);
 		VpRdup((Real*)c,0);
-		MEM_CHECK(c2,VpVolume(c)+VpVolume(r),msg)
+		MEM_CHECK(c2,VpCurLength(c)+VpCurLength(r),msg)
 		VpMul(c2,c,r);
 		VpDiv(s,r,xn,c2);
 		VpAsgn(xn,s,0);
@@ -2757,8 +2759,8 @@ VP_EXPORT(VP_HANDLE)
 	if(VpIsZero(x))              return VpSetOne(y);
 	if (!VpHasVal((VP_HANDLE)x)) return VpException(VpSetNaN(y),"Invalid argument for VpCos()");
 
-	sig = (int)(((VpCapacity(y)>VpCapacity(x))?VpCapacity(y):VpCapacity(x))+BASE_FIG+1);
-	x2 = VpAlloc("1",(VpVolume(x)+1)*2);
+	sig = (int)(((VpMaxLength(y)>VpMaxLength(x))?VpMaxLength(y):VpMaxLength(x))+BASE_FIG+1);
+	x2 = VpAlloc("1",(VpCurLength(x)+1)*2);
 	s  = VpAlloc("1",sig*2);
 	r  = VpAlloc("1",sig*2);
 	xn = VpAlloc("1",sig*2);
@@ -2781,13 +2783,13 @@ VP_EXPORT(VP_HANDLE)
 	gIterCount = 0;
 	int sign = 1;
 	while(-(((Real*)xn)->exponent)<=sig) {
-		MEM_CHECK(r,VpVolume(xn)+VpVolume(x2),msg)
+		MEM_CHECK(r,VpCurLength(xn)+VpCurLength(x2),msg)
 		VpMul(r,xn,x2);
 		VpAsgn(xn,r,0);
 		VpRdup((Real*)c,0);
 		VpAsgn(r,c,0);
 		VpRdup((Real*)c,0);
-		MEM_CHECK(c2,VpVolume(c)+VpVolume(r),msg)
+		MEM_CHECK(c2,VpCurLength(c)+VpCurLength(r),msg)
 		VpMul(c2,c,r);
 		VpDiv(s,r,xn,c2);
 		VpAsgn(xn,s,0);
@@ -2835,8 +2837,8 @@ VP_EXPORT(VP_HANDLE)
 	if(VpIsZero(x))              return VpSetZero(y,VP_SIGN(x));
 	if (!VpHasVal((VP_HANDLE)x)) return VpException(VpSetNaN(y),"Invalid argument for VpAtan()");
 
-	sig = (int)(((VpCapacity(y)>VpCapacity(x))?VpCapacity(y):VpCapacity(x))+BASE_FIG+1);
-	x2 = VpAlloc("1",(VpVolume(x)+1)*2);
+	sig = (int)(((VpMaxLength(y)>VpMaxLength(x))?VpMaxLength(y):VpMaxLength(x))+BASE_FIG+1);
+	x2 = VpAlloc("1",(VpCurLength(x)+1)*2);
 	s  = VpAlloc("1",sig*2);
 	r  = VpAlloc("1",sig*2);
 	xn = VpAlloc("1",sig*2);
@@ -2858,7 +2860,7 @@ VP_EXPORT(VP_HANDLE)
 	gIterCount = 0;
 	int sign = 1;
 	while(-(((Real*)s)->exponent)<=sig) {
-		MEM_CHECK(r,VpVolume(xn)+VpVolume(x2),msg)
+		MEM_CHECK(r,VpCurLength(xn)+VpCurLength(x2),msg)
 		VpMul(r,xn,x2);
 		VpAsgn(xn,r,0);
 		VpRdup((Real*)c,0);
@@ -2908,9 +2910,9 @@ VP_EXPORT(VP_HANDLE)
 	if(VpIsOne(x))               return VpSetZero(y,VP_SIGN(x));
 	if (!VpHasVal((VP_HANDLE)x)) return VpException(VpSetNaN(y),"Invalid argument for VpLog()");
 
-	sig = (int)(((VpCapacity(y)>VpCapacity(x))?VpCapacity(y):VpCapacity(x))+BASE_FIG+1);
+	sig = (int)(((VpMaxLength(y)>VpMaxLength(x))?VpMaxLength(y):VpMaxLength(x))+BASE_FIG+1);
 	c  = VpAlloc("1",2);
-	x1 = VpAlloc("1",(VpVolume(x)+1)*2);
+	x1 = VpAlloc("1",(VpCurLength(x)+1)*2);
 	s  = VpAlloc("1",sig*2);
 	r  = VpAlloc("1",sig*2);
 	xn = VpAlloc("1",sig*2);
@@ -2932,7 +2934,7 @@ VP_EXPORT(VP_HANDLE)
 	gIterCount = 0;
 	int sign = 1;
 	while(-(((Real*)s)->exponent)<=sig) {
-		MEM_CHECK(r,VpVolume(xn)+VpVolume(x1),msg)
+		MEM_CHECK(r,VpCurLength(xn)+VpCurLength(x1),msg)
 		VpMul(r,xn,x1);
 		VpAsgn(xn,r,0);
 		VpRdup((Real*)c,0);
