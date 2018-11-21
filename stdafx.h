@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <float.h>
 #include <ctype.h>
 #include <math.h>
 #include <limits>
@@ -17,13 +18,17 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <io.h>
 
 #include "bigdecimal.h"
 
+// gcc not define this.
+#ifndef FALSE
+#define FALSE 0
+#endif
+
 #ifdef _DEBUG
 #define ASSERT(f)    DbgAssert(f,__FILE__,__LINE__)
-void    DbgAssert(int  f,char *file,int line);
+void    DbgAssert(int  f,const char *file,int line);
 #define TRACE(s) printf(s)
 #else 
 #define ASSERT(f)

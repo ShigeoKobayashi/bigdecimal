@@ -804,7 +804,9 @@ static void
         BASE_FIG = 9;
         BASE     = 1000000000ULL;
     }
-
+#ifdef _DEBUG
+    printf("VpInit: BASE_FIG=%lu BASE=%llu\n",(VP_UINT)BASE_FIG,(unsigned long long)BASE);
+#endif
     HALF_BASE = (BASE/2);
     BASE1     = (BASE/10);
     DBLE_FIG  = (DBL_DIG+1);    /* figure of double */
@@ -2974,7 +2976,7 @@ VP_EXPORT(VP_HANDLE)
 }
 
 #ifdef _DEBUG
-void DbgAssert(int  f,char *file,int line)
+void DbgAssert(int  f,const char *file,int line)
 {
     if(f) return;
     printf("****** Debug assertion failed %d:%s\n",line,file);
