@@ -71,22 +71,22 @@ extern "C" {
 typedef void (VP_EXCEPTION_HANDLER)(VP_HANDLE h,const char *pszMsg);
 VP_EXPORT(void) VpSetExceptionHandler(VP_EXCEPTION_HANDLER *pf);
 
-VP_EXPORT(VP_UINT) VpGetUserArea(VP_HANDLE h);
-VP_EXPORT(void   ) VpSetUserArea(VP_HANDLE h,VP_UINT userarea);
+VP_EXPORT(VP_UINT) VpGetTag(VP_HANDLE h);
+VP_EXPORT(void   ) VpSetTag(VP_HANDLE h,VP_UINT tag);
 
 /*
  * VP representation
  *  r = 0.xxxxxxxxx *BASE**exponent
  */
 typedef struct {
-	VP_UINT   Size;    /* all byte size of this structure(used in realloc() case).  */
+    VP_UINT   Size;    /* all byte size of this structure(used in realloc() case).  */
     VP_UINT   MaxPrec; /* Maximum precision size                          */
                        /* This is the actual size of frac[]               */
                        /*(frac[0] to frac[MaxPrec] are available).        */
     VP_UINT   Prec;    /* Current precision size.                         */
                        /* This indicates how much the.                    */
                        /* the array frac[] is actually used.              */
-	VP_UINT   UserArea;/* Space for the user(BigDecimal never touch this) */
+    VP_UINT   Tag;     /* Space for the user(BigDecimal never touch this) */
     int       exponent;/* Exponent part.                                  */
     int       sign;    /* Attributes of the value.                        */
                        /*
@@ -111,14 +111,14 @@ typedef struct {
 
 #define VpIsInvalid(h)  (((VP_HANDLE)h)<100)
 #define VpIsValid(h)    (((VP_HANDLE)h)>100)
-#define VpIsNumeric(h)  (!((VpIsNaN(h)||VpIsInf(h))))
+#define VpIsNumeric(h)  ( VpIsValid(h) && !((VpIsNaN(h)||VpIsInf(h)) ))
 
 /* ERROR CODES */
 #define VP_ERROR_BAD_STRING         1
 #define VP_ERROR_BAD_HANDLE         2
 #define VP_ERROR_MEMORY_ALLOCATION  3
 #define VP_ERROR_NOT_CONVERGED      4  /* Iteration not converged, */
-#define VP_ERROR_RESULT_NON_NUMERIC 9  /* Bad operation */
+#define VP_ERROR_NON_NUMERIC        9  /* Bad operation */
 
 /*
  *  NaN & Infinity
@@ -129,7 +129,6 @@ typedef struct {
 #define SZ_NINF "-Infinity"
 
 /* Round mode */
-
 #define VP_ROUND_UP         1
 #define VP_ROUND_DOWN       2
 #define VP_ROUND_HALF_UP    3  /* Default mode */
@@ -139,13 +138,15 @@ typedef struct {
 #define VP_ROUND_HALF_EVEN  7
 
 VP_EXPORT(VP_HANDLE) VpAlloc(char *szVal,VP_UINT mx);
+VP_EXPORT(VP_HANDLE) VpAllocStorage(VP_UINT mx);
 VP_EXPORT(int)       VpAllocCount(); /* returns VP_HANDLE allocation count */
 VP_EXPORT(VP_HANDLE) VpClone(VP_HANDLE p);
 VP_EXPORT(void)      VpFree(VP_HANDLE *p);
-VP_EXPORT(int)  	 VpExponent(VP_HANDLE h);
 VP_EXPORT(VP_UINT)   VpMaxLength(VP_HANDLE h);
 VP_EXPORT(VP_UINT)   VpCurLength(VP_HANDLE h);
+
 VP_EXPORT(VP_UINT)   VpEffectiveDigits(VP_HANDLE h);
+VP_EXPORT(int)       VpExponent(VP_HANDLE h);
 
 
 VP_EXPORT(VP_UINT)   VpGetDigitSeparationCount();          /* default = 10 */
@@ -169,6 +170,8 @@ VP_EXPORT(VP_HANDLE) VpSetSign(VP_HANDLE a,int s);
 VP_EXPORT(int)       VpGetSign(VP_HANDLE a);
 VP_EXPORT(VP_HANDLE) VpRevertSign(VP_HANDLE a); /* Negate */
 #define VpNegate(a)  VpRevertSign(a)
+VP_EXPORT(VP_HANDLE) VpAbs(VP_HANDLE c);
+
 /* 1 */
 VP_EXPORT(int)       VpIsOne(VP_HANDLE a);
 VP_EXPORT(VP_HANDLE) VpSetOne(VP_HANDLE a);
