@@ -1191,8 +1191,8 @@ VP_EXPORT(VP_HANDLE)
 {
     VP_UINT s, ss;
     int  sign;
-    VP_HANDLE hw1 = NULL;
-    VP_HANDLE hw2 = NULL;
+    VP_HANDLE hw1 = 0;
+    VP_HANDLE hw2 = 0;
     Real *w1 = NULL;
     Real *w2 = NULL;
     Real *x = (Real *)hx;
@@ -1274,7 +1274,7 @@ Exit:
     return hy;
 }
 
-static char *VpAddString(char *t,char *s)
+static char *VpAddString(char *t,const char *s)
 {
     while(*s) *t++ = *s++;
     *t = 0;
@@ -1298,7 +1298,7 @@ static char *VpAddString(char *t,char *s)
  *   ERROR code ... Real *p is freed before returnning to the caller.
  */
 static VP_HANDLE 
-    VpCtoV(Real *a, int sign, char *int_chr, VP_UINT ni, char *frac, VP_UINT nf, int signe, char *exp_chr, VP_UINT ne)
+    VpCtoV(Real *a, int sign, const char *int_chr, VP_UINT ni, const char *frac, VP_UINT nf, int signe, const char *exp_chr, VP_UINT ne)
 {
     VP_UINT   i, j, ind_a, ma;
     int e, es, eb, ef;
@@ -1525,7 +1525,7 @@ VP_EXPORT(VP_UINT)
  *   ERROR code is returned if memory allocation is failed,or any error. 
  */
 VP_EXPORT(VP_HANDLE)
-    VpAlloc(char *szVal,VP_UINT mx)
+    VpAlloc(const char *szVal,VP_UINT mx)
 {
     VP_UINT i, ni, ipf, nf, ipe, ne;
     char v;
@@ -1632,7 +1632,7 @@ VP_EXPORT(VP_HANDLE)
 {
     Real *r = (Real*)p;
     ASSERT(p != 0);
-    if(p==NULL) return (VP_HANDLE)VP_ERROR_BAD_HANDLE;
+    if(r==NULL) return (VP_HANDLE)VP_ERROR_BAD_HANDLE;
     Real *t = (Real*)malloc(r->Size);
     if(t==NULL) return (VP_HANDLE)VP_ERROR_MEMORY_ALLOCATION;
     memcpy(t,r,r->Size);
@@ -1647,10 +1647,10 @@ VP_EXPORT(void)
 VpFree(VP_HANDLE *p)
 {
     if( p==NULL) return;
-    if(*p==NULL) return;
+    if(*p==0   ) return;
     if(VpIsInvalid(*p)) return;
     free((void *)(*p));
-    *p = NULL;
+    *p = 0;
     gAllocCount--; /* Count down */
     ASSERT(gAllocCount>=0);
 }
@@ -2643,7 +2643,7 @@ VP_EXPORT(VP_HANDLE)
     while(-(((Real*)xn)->exponent)<sig) {
         MEM_CHECK(r,VpCurLength(xn)+VpCurLength(x),msg)
         VpMul(r,xn,x);     /* r = x**n/n */
-          VpAsgn(s,r,0);    
+        VpAsgn(s,r,0);    
         VpDiv(xn,r,s,c);   /* xn = xn*x/n! */
         VpAdd(s,y,xn);
         VpAsgn(y,s,0);
@@ -2679,6 +2679,7 @@ VP_EXPORT(VP_HANDLE)
     VP_HANDLE xn;
     VP_HANDLE x2;
     int       sig;
+    int       sign = 1;
 
     const char *msg = "Memory allocation error in VpSin()!";
 
@@ -2709,7 +2710,7 @@ VP_EXPORT(VP_HANDLE)
     VpAsgn(y,x,1); /* y = x */
 
     gIterCount = 0;
-    int sign = 1;
+    sign = 1;
     while(-(((Real*)xn)->exponent)<=sig) {
         MEM_CHECK(r,VpCurLength(xn)+VpCurLength(x2),msg)
         VpMul(r,xn,x2);
@@ -2756,6 +2757,7 @@ VP_EXPORT(VP_HANDLE)
     VP_HANDLE xn;
     VP_HANDLE x2;
     int       sig;
+    int       sign = 1;
 
     const char *msg = "Memory allocation error in VpCos()!";
 
@@ -2788,7 +2790,7 @@ VP_EXPORT(VP_HANDLE)
     ((Real*)c)->sign = VP_SIGN_POSITIVE_FINITE;
 
     gIterCount = 0;
-    int sign = 1;
+    sign = 1;
     while(-(((Real*)xn)->exponent)<=sig) {
         MEM_CHECK(r,VpCurLength(xn)+VpCurLength(x2),msg)
         VpMul(r,xn,x2);
@@ -2834,6 +2836,7 @@ VP_EXPORT(VP_HANDLE)
     VP_HANDLE xn;
     VP_HANDLE x2;
     int       sig;
+    int       sign = 1;
 
     const char *msg = "Memory allocation error in VpAtan()!";
 
@@ -2865,7 +2868,7 @@ VP_EXPORT(VP_HANDLE)
     ((Real*)c)->sign = VP_SIGN_POSITIVE_FINITE;
 
     gIterCount = 0;
-    int sign = 1;
+    sign = 1;
     while(-(((Real*)s)->exponent)<=sig) {
         MEM_CHECK(r,VpCurLength(xn)+VpCurLength(x2),msg)
         VpMul(r,xn,x2);
@@ -2906,6 +2909,7 @@ VP_EXPORT(VP_HANDLE)
     VP_HANDLE xn;
     VP_HANDLE x1;
     int       sig;
+    int       sign = 1;
 
     const char *msg = "Memory allocation error in VpLog()!";
 
@@ -2939,7 +2943,7 @@ VP_EXPORT(VP_HANDLE)
     VpAsgn(y,x1,1); /* y = x */
     
     gIterCount = 0;
-    int sign = 1;
+    sign = 1;
     while(-(((Real*)s)->exponent)<=sig) {
         MEM_CHECK(r,VpCurLength(xn)+VpCurLength(x1),msg)
         VpMul(r,xn,x1);

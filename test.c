@@ -50,10 +50,8 @@ void MyException(VP_HANDLE h,const char *msg)
 
 int main(int argc, char* argv[])
 {
-/*
 	test1();
 	test2();
-*/
 	E("Inf =",VpAlloc("Infinity",1));
 	F("+Inf=",VpAlloc("+Infinity",1));
 	E("-Inf=",VpAlloc("-Infinity",1));
