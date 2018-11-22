@@ -791,13 +791,17 @@ Exit:
 static void 
     VpInit()
 {
+	/*
+	 BASE must be 10**n  (n=BASE_FIG)
+	 And BASE*BASE must be retresented by 1 VP_DIGIT.
+	 To check BASE*BASE is within VP_DIGIT, BASE-((BASE)*(BASE))/BASE == 0.
+	 If BASE*BASE overflows BASE-((BASE)*(BASE))/BASE will not be zero.
+	*/
     ASSERT(sizeof(VP_DIGIT)==4 || sizeof(VP_DIGIT)==8);
     if(sizeof(VP_DIGIT)==4) {
         /* 32-bit */ 
         BASE_FIG = 4;       /* =log10(BASE)  */
         BASE     = 10000UL; /* Base value(value must be 10**BASE_FIG) */
-                            /* The value of BASE**2 + BASE must be represented */
-                            /* within one VP_DIGIT. */
     }
     if(sizeof(VP_DIGIT)==8) {
         /* 64-bit */ 
@@ -2202,7 +2206,7 @@ VP_EXPORT(VP_HANDLE)
     */
 
     /* drop digits after pointed digit */
-    memset(y->frac+ix+1, 0, (y->Prec - (ix+1)) * sizeof(int ));
+    memset(y->frac+ix+1, 0, (y->Prec - (ix+1)) * sizeof(VP_DIGIT));
 
     switch(mode) {
     case VP_ROUND_UP:
@@ -2273,8 +2277,8 @@ VP_EXPORT(VP_HANDLE)
         VpNmlz(y);
     }
     if (exptoadd > 0) {
-        y->exponent += (int  )(exptoadd/BASE_FIG);
-        exptoadd %= (int )BASE_FIG;
+        y->exponent += (int)(exptoadd/BASE_FIG);
+        exptoadd %= (int)BASE_FIG;
         for(i=0;i<exptoadd;i++) {
             y->frac[0] *= 10;
             if (y->frac[0] >= BASE) {

@@ -64,9 +64,13 @@ extern "C" {
 /* VP_HANDLE,VP_DIGIT,VP_UINT must be unsigned. */
 /***/
 #define VP_HANDLE  unsigned long long  /* This is actually an address for structure Real. */
+
 /* unsigned log is 32-bit on Windows,but it is 64-bit on 64-bit Linux */
 #define VP_DIGIT   unsigned int        /* Fraction part array (can be 64-bit:unsigned long long)   */
-#define VP_UINT    size_t              /* Common unsigned part   */
+#define VP_UINT    unsigned int        /* Common unsigned part   */
+
+
+
 
 /* VP-exception handle called from VP-routines if needed(error case). */
 typedef void (VP_EXCEPTION_HANDLER)(VP_HANDLE h,const char *pszMsg);
