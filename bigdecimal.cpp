@@ -106,7 +106,7 @@ static int
    mx ... number of digits the allocated Real can have.
 */
 VP_EXPORT(VP_HANDLE)
-    VpAllocStorage(VP_UINT m)
+    VpAllocCase(VP_UINT m)
 {
     int    mx  = (m+BASE_FIG-1)/BASE_FIG + 1; 
     VP_UINT s  = sizeof(Real)+mx*sizeof(VP_DIGIT); /* frac[] has mx+1 elements(intensional) */
@@ -1544,7 +1544,7 @@ VP_EXPORT(VP_HANDLE)
        /* necessary to be able to store */
        /* at least mx digits. */
        /* szVal==NULL ==> allocate zero value. */
-       vp = (Real*)VpAllocStorage(mx);
+       vp = (Real*)VpAllocCase(mx);
        if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
        VpSetZero((VP_HANDLE)vp,1);    /* initialize vp to zero. */
        return (VP_HANDLE)vp;
@@ -1556,19 +1556,19 @@ VP_EXPORT(VP_HANDLE)
     /* Check on Inf & NaN */
     if (StrCmp(szVal, SZ_PINF) == 0 ||
         StrCmp(szVal, SZ_INF)  == 0 ) {
-        vp = (Real*)VpAllocStorage(1);
+        vp = (Real*)VpAllocCase(1);
         if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
         VpSetPosInf((VP_HANDLE)vp);
         return (VP_HANDLE)vp;
     }
     if (StrCmp(szVal, SZ_NINF) == 0) {
-        vp = (Real*)VpAllocStorage(1);
+        vp = (Real*)VpAllocCase(1);
         if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
         VpSetNegInf((VP_HANDLE)vp);
         return (VP_HANDLE)vp;
     }
     if (StrCmp(szVal, SZ_NaN) == 0) {
-        vp = (Real*)VpAllocStorage(1);
+        vp = (Real*)VpAllocCase(1);
         if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
         VpSetNaN((VP_HANDLE)vp);
         return (VP_HANDLE)vp;
@@ -1627,7 +1627,7 @@ VP_EXPORT(VP_HANDLE)
     }
 
     mx = Max(ni + nf + 1, mx);
-    vp = (Real*)VpAllocStorage(mx);
+    vp = (Real*)VpAllocCase(mx);
     if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
     return VpCtoV(vp, sign, szVal, ni, &szVal[ipf], nf, signe, &szVal[ipe], ne);
 }
@@ -1684,7 +1684,6 @@ VP_EXPORT(int)
     if(VpIsNaN((VP_HANDLE)a))    return fprintf(fp,SZ_NaN);
     if(VpIsPosInf((VP_HANDLE)a)) return fprintf(fp,SZ_INF);
     if(VpIsNegInf((VP_HANDLE)a)) return fprintf(fp,SZ_NINF);
-    if(VpIsZero((VP_HANDLE)a))   return fprintf(fp,"0.0");
 
     nd = nc = 0;        /*  nd : number of digits in fraction part(every 10 digits, */
     /*    nd<=10). */
@@ -1699,7 +1698,10 @@ VP_EXPORT(int)
             nc += fprintf(fp, "%c",gDigitLeader);
         }
     }
-    nc += fprintf(fp, "0.");
+    if(VpIsZero((VP_HANDLE)a))   return fprintf(fp,"0.0");
+
+	
+	nc += fprintf(fp, "0.");
     for(i=0; i < a->Prec; ++i) {
         m = BASE1;
         e = a->frac[i];
@@ -1752,7 +1754,6 @@ VP_EXPORT(int)
     if(VpIsNaN((VP_HANDLE)a))    {return fprintf(fp,SZ_NaN);}
     if(VpIsPosInf((VP_HANDLE)a)) {return fprintf(fp,SZ_INF);}
     if(VpIsNegInf((VP_HANDLE)a)) {return fprintf(fp,SZ_NINF);}
-    if(VpIsZero((VP_HANDLE)a))   {return fprintf(fp,"0.0");}
 
     nc = 0;
     if(VP_SIGN(a) < 0) {
@@ -1762,6 +1763,7 @@ VP_EXPORT(int)
             nc += fprintf(fp, "%c",gDigitLeader);
         }
     }
+    if(VpIsZero((VP_HANDLE)a))   {return fprintf(fp,"0.0");}
 
     nb = 0;
     n  = a->Prec;
@@ -1911,7 +1913,6 @@ VP_EXPORT(char *)
     if(VpIsNaN((VP_HANDLE)a))    {VpAddString(sz,SZ_NaN);return sz;}
     if(VpIsPosInf((VP_HANDLE)a)) {VpAddString(sz,SZ_INF);return sz;}
     if(VpIsNegInf((VP_HANDLE)a)) {VpAddString(sz,SZ_NINF);return sz;}
-    if(VpIsZero((VP_HANDLE)a))   {VpAddString(sz,"0.0");return sz;}
 
     nd = 0;        /*  nd : number of digits in fraction part */
     ZeroSup = 1;        /* Flag not to print the leading zeros as 0.00xxxxEnn */
@@ -1923,7 +1924,9 @@ VP_EXPORT(char *)
             *psz++ = gDigitLeader;
         }
     }
-    psz = VpAddString(psz,"0.");
+    if(VpIsZero((VP_HANDLE)a))   {VpAddString(sz,"0.0");return sz;}
+
+	psz = VpAddString(psz,"0.");
     for(i=0; i < a->Prec; ++i) {
         m = BASE1;
         e = a->frac[i];
@@ -1981,7 +1984,6 @@ VP_EXPORT(char*)
     if(VpIsNaN((VP_HANDLE)a))    {VpAddString(sz,SZ_NaN);return sz;}
     if(VpIsPosInf((VP_HANDLE)a)) {VpAddString(sz,SZ_INF);return sz;}
     if(VpIsNegInf((VP_HANDLE)a)) {VpAddString(sz,SZ_NINF);return sz;}
-    if(VpIsZero((VP_HANDLE)a))   {VpAddString(sz,"0.0");return sz;}
 
     if(VP_SIGN(a) < 0) {
         psz = VpAddString(psz, "-");
@@ -1990,6 +1992,7 @@ VP_EXPORT(char*)
             *psz++ = gDigitLeader;
         }
     }
+    if(VpIsZero((VP_HANDLE)a))   {VpAddString(sz,"0.0");return sz;}
 
     n  = a->Prec;
     ex = a->exponent;
@@ -2371,7 +2374,7 @@ VP_EXPORT(VP_HANDLE)
     VP_FINITE_SIGN(c,VP_SIGN(a)*VP_SIGN(b));    /* set sign  */
     carry = 0;
     nc = ind_c = MxIndAB;
-    memset(c->frac, 0, (nc + 1) * sizeof(int ));        /* Initialize c  */
+    memset(c->frac, 0, (nc + 1) * sizeof(VP_DIGIT));        /* Initialize c  */
     c->Prec = nc + 1;        /* set precision */
     for(nc = 0; nc < MxIndAB; ++nc, --ind_c) {
         if(nc < MxIndB) {    /* The left triangle of the Fig. */
@@ -2522,7 +2525,7 @@ converge:
 #define MEM_CHECK(c,m,msg)  \
 if(VpMaxLength(c)<=(m)) {\
     VpFree(&c);\
-    c=(VP_HANDLE)VpAllocStorage((m+BASE_FIG));\
+    c=(VP_HANDLE)VpAllocCase((m+BASE_FIG));\
     if(VpIsInvalid(c)) {VpException(c,msg);goto ErExit;}\
 }
 
@@ -2537,8 +2540,8 @@ VP_EXPORT(VP_HANDLE)
     int     exp;
     VP_UINT sig;
 
-    sig    = VpMaxLength(pi);
-    sig   += BASE_FIG*2+1;
+    sig    = VpMaxLength(pi)*2+1;
+//    sig   += BASE_FIG*2+1;
     pi     = VpSetPosZero(pi);
 
     VP_HANDLE two    = VpAlloc("2",1);
@@ -2549,7 +2552,7 @@ VP_EXPORT(VP_HANDLE)
     VP_HANDLE k = VpAlloc("1",sig);
     VP_HANDLE w = VpAlloc("1",sig);
     VP_HANDLE t = VpAlloc("-80",sig);
-    VP_HANDLE r = VpAlloc("0",sig+BASE_FIG); /* r->MaxPrec > a->Prec */
+    VP_HANDLE r = VpAlloc("0",sig+sig+1);
 
     if(VpIsInvalid(two)||VpIsInvalid(m25)||VpIsInvalid(m57121)||
        VpIsInvalid(u)||VpIsInvalid(k)||VpIsInvalid(w)||VpIsInvalid(t)||VpIsInvalid(r)) {
@@ -2561,13 +2564,14 @@ VP_EXPORT(VP_HANDLE)
     exp = (int)((Real*)pi)->MaxPrec;
     while (!VpIsZero(u) && -(((Real*)u)->exponent) < exp) { 
         VpMul(r,t,m25);
-        VpAsgn(t,r,1);
+        VpAsgn(t,r,0);
         VpDiv(u,r,t,k);
-        VpAdd(r,pi,u);
-        VpAsgn(pi,r,1);
+		VpAdd(r,pi,u);
+        VpAsgn(pi,r,0);
         VpAdd(r,k,two);
-        VpAsgn(k,r,1);
-        if(++gIterCount>gMaxIter) {
+        VpAsgn(k,r,0);
+
+		if(++gIterCount>gMaxIter) {
             VpException(pi,"Maximum iteration count exhausted in VpPI()");
             goto Exit;
         }
@@ -2583,12 +2587,12 @@ VP_EXPORT(VP_HANDLE)
     gIterCount = 0;
     while (!VpIsZero(u) && -(((Real*)u)->exponent) < exp) { 
         VpDiv(u,r,t,m57121);
-        VpAsgn(t,u,1);
+		VpAsgn(t,u,0);
         VpDiv(u,r,t,k);
-        VpAdd(r,pi,u);
-        VpAsgn(pi,r,1);
+		VpAdd(r,pi,u);
+		VpAsgn(pi,r,0);
         VpAdd(r,k,two);
-        VpAsgn(k,r,1);
+        VpAsgn(k,r,0);
         if(++gIterCount>gMaxIter) {
             VpException(pi,"Maximum iteration count exhausted in VpPI()");
             goto Exit;

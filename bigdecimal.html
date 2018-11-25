@@ -61,7 +61,7 @@ Bigdecimal variable(VP_HANDLE) is simply a pointer to the structure Real(see big
 
 <h3>Allocation &amp; Free</h3>
 Unlike double or float in C/C++,it is noted that Bigdecimal variable(VP_HANDLE) is a container of digits with certain size.<br/>
-Any Bigdecimal variable must be allocated by <b>VpAlloc()</b> or <b>VpAllocStorage()</b> before it is used,and freed(by <b>VpFree()</b>) if it is no more used as following example.
+Any Bigdecimal variable must be allocated by <b>VpAlloc()</b> or <b>VpAllocCase()</b> before it is used,and freed(by <b>VpFree()</b>) if it is no more used as following example.
 <pre><code>
 #include &lt;stdio.h&gt;
 #include "bigdecimal.h"
@@ -93,7 +93,7 @@ VpMaxLength(a) and VpCurLength(a) return actual sizes that are slightly bigger t
 
 It is noted that <b>VpMaxLength(a) &gt;=VpCurLength(a) &gt; 0</b>.<p/>
 
-If the initial value is zero,then the initial value string can be omitted and <b>VpAllocStorage(m)</b> can be used instead of VpAlloc() where the argument m is the maximum number of digits as same as the second argument of VpAlloc().
+If the initial value is zero,then the initial value string can be omitted and <b>VpAllocCase(m)</b> can be used instead of VpAlloc() where the argument m is the maximum number of digits as same as the second argument of VpAlloc().
 </ul>
 <h3>Computation</h3>
 Once allocated,Bigdecimal variables can be used in computation like the following program.
@@ -102,7 +102,7 @@ int main(int argc, char* argv[])
 {
     VP_HANDLE a = VpAlloc("+1234567890.1234567890 123456789000000E0",100);
     VP_HANDLE b = VpAlloc("20",10);
-    VP_HANDLE c = VpAllocStorage(150);
+    VP_HANDLE c = VpAllocCase(150);
     VpPrintE(stdout,VpMul(c,a,b)); /* c=a*b ===> 0.2469135780 2469135780 246913578E11 */
     VpFree(&a);
     VpFree(&b);
@@ -111,7 +111,7 @@ int main(int argc, char* argv[])
 }
 </code></pre>
 Bigdecimal offers functions for arithmetic operations(every function returns resulting 'c') for convenience of the programming.<br/>
-Only 3 functions(VpAlloc(),VpAllocStorage() and VpClone()) create new Bigdecimal variable(Other functions never do that).<br/>
+Only 3 functions(VpAlloc(),VpAllocCase() and VpClone()) create new Bigdecimal variable(Other functions never do that).<br/>
 It should strongly be noted that,many function(except 3 functions above) return Bigdecimal variables but they are never new ones. </b><br/>
  For instance, <b>VpAdd(c,a,b)</b> computes a+b first,saves the result to c,and returns c itself.
 
@@ -167,10 +167,10 @@ This is also applies to log(ab)=log(a)+log(b),where a and b must be in range 0&l
 #define F(H,V) printf(H);VpPrintF(stdout,V);printf("\n");
 #define E(H,V) printf(H);VpPrintE(stdout,V);printf("\n");
 
-    VP_HANDLE sqrt2 = VpAllocStorage(100);
-    VP_HANDLE pi    = VpAllocStorage(100);
-    VP_HANDLE pi2   = VpAllocStorage(100);
-    VP_HANDLE one   = VpAllocStorage(100);
+    VP_HANDLE sqrt2 = VpAllocCase(100);
+    VP_HANDLE pi    = VpAllocCase(100);
+    VP_HANDLE pi2   = VpAllocCase(100);
+    VP_HANDLE one   = VpAllocCase(100);
     VP_HANDLE two   = VpAlloc("2",1);
     VP_HANDLE r;
     VP_UINT   m;
@@ -308,7 +308,7 @@ Round operation is done at ixRound position counted from the left side of the nu
 <u><b>Example:</b></u>
 <pre><code>
     VP_HANDLE c = VpAlloc("5555555555.5555555555",1);
-    VP_HANDLE a = VpAllocStorage(VpMaxLength(c));
+    VP_HANDLE a = VpAllocCase(VpMaxLength(c));
     VpAsgn(a,c,1); F("ScaleRound ( 0)= ",VpScaleRound (c, 0));
     VpAsgn(c,a,1); F("ScaleRound ( 2)= ",VpScaleRound (c, 2));
     VpAsgn(c,a,1); F("ScaleRound (-2)= ",VpScaleRound (c,-2));
@@ -359,8 +359,8 @@ Zero has two different variations as +0.0 and -0.0. But,still, +0.0==-0.0 is tru
 
 <H2>Error handling</H2>
 VpAlloc() may return non VP_HANDLE value(error code) if the first argument contains bad character or memory allocation fails.
-VpAllocStorage() may also return non VP_HANDLE value if it fails to allocate memories.
-Because VpAlloc() or VpAllocStorage() may return an error code,it is very important to examin the returned value or the program may crash.<p/>
+VpAllocCase() may also return non VP_HANDLE value if it fails to allocate memories.
+Because VpAlloc() or VpAllocCase() may return an error code,it is very important to examine the returned value or the program may crash.<p/>
 To check if the returned value is valid VP_HANDLE,use VpValid() or VpInvalid() as:
 <pre><code>
    VP_HANDLE h = VpAlloc("12345+123",2); /* ==> ERROR:  + is placed at illegal position. */

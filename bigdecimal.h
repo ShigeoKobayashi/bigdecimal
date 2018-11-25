@@ -66,10 +66,8 @@ extern "C" {
 #define VP_HANDLE  unsigned long long  /* This is actually an address for structure Real. */
 
 /* unsigned log is 32-bit on Windows,but it is 64-bit on 64-bit Linux */
-#define VP_DIGIT   unsigned int        /* Fraction part array (can be 64-bit:unsigned long long)   */
+#define VP_DIGIT   unsigned long       /* Fraction part array (can be 64-bit:unsigned long long)   */
 #define VP_UINT    unsigned int        /* Common unsigned part   */
-
-
 
 
 /* VP-exception handle called from VP-routines if needed(error case). */
@@ -143,7 +141,7 @@ typedef struct {
 #define VP_ROUND_HALF_EVEN  7
 
 VP_EXPORT(VP_HANDLE) VpAlloc(const char *szVal,VP_UINT mx);
-VP_EXPORT(VP_HANDLE) VpAllocStorage(VP_UINT mx);
+VP_EXPORT(VP_HANDLE) VpAllocCase(VP_UINT mx);
 VP_EXPORT(int)       VpAllocCount(); /* returns VP_HANDLE allocation count */
 VP_EXPORT(VP_HANDLE) VpClone(VP_HANDLE p);
 VP_EXPORT(void)      VpFree(VP_HANDLE *p);
