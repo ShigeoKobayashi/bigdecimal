@@ -4,7 +4,7 @@ HEADERS=stdafx.h bigdecimal.h
 OBJS=test.o bigdecimal.o
 
 lib:
-	g++ -D_DEBUG -o libbigdecimal.so -shared -fPIC -fvisibility=hidden $(DLL_SOURCES)
+	g++ -o libbigdecimal.so -shared -fPIC -fvisibility=hidden $(DLL_SOURCES)
 link:
 	gcc -L./ -o test test.c -lbigdecimal
 run:
