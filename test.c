@@ -6,26 +6,35 @@
 
 void test1()
 {
-    VP_HANDLE sqrt2 = VpAllocStorage(100);
-    VP_HANDLE pi    = VpAllocStorage(100);
-    VP_HANDLE pi2   = VpAllocStorage(100);
-    VP_HANDLE one   = VpAllocStorage(100);
+    VP_HANDLE sqrt  = VpMemAlloc(100);
+    VP_HANDLE pi    = VpMemAlloc(100);
+    VP_HANDLE pi2   = VpMemAlloc(100);
+    VP_HANDLE exp   = VpMemAlloc(100);
+    VP_HANDLE one   = VpMemAlloc(100);
     VP_HANDLE two   = VpAlloc("2",1);
+    VP_HANDLE zero  = VpMemAlloc(100);
 	VP_HANDLE r;
 	VP_UINT   m;
 
-	F("Sqrt(2)    =",VpSqrt(sqrt2,two));                 /* sqrt2 = sqrt(2) */
-	VpFree(&two);two = VpAllocStorage(VpCurLength(sqrt2)*2+1);
-	F("Sqrt(2)**2=",VpMul(two,sqrt2,sqrt2));             /* two = sqrt(2)**2  ==> 2.0 */
+	F("Sqrt(2)    =",VpSqrt(sqrt,two));                  /* sqrt = sqrt(2) */
+	VpFree(&two);two = VpMemAlloc(VpCurLength(sqrt)*2+1);
+	F("Sqrt(2)**2=",VpPower(two,sqrt,2));                /* two = sqrt(2)**2  ==> 2.0 */
 	F("pi        =",VpPI(pi));                           /* pi  = 3.141592...         */
 	m = VpCurLength(pi)+VpCurLength(two)+1;
     if(m<VpMaxLength(pi2)) m = VpMaxLength(pi2)+1;
-    r = VpAllocStorage(m);
+    r = VpMemAlloc(m);
 	F("pi2       =",VpDiv(pi2,r,pi,two));                /* pi2 = pi/2 */
-	E("sin(pi2)  =",VpSin(one,pi2));                     /* one = sin(pi/2)   ==> 1.0 */
-	VpFree(&sqrt2);
+	E("sin(pi/2) =",VpSin(one,pi2));                     /* one = sin(pi/2)   ==> 1.0 */
+	F("cos(pi/2) =",VpCos(zero,pi2));                    /* zero = sin(pi/2)   ==> 1.0 */
+	F("exp       =",VpExp(exp,one));                     /* exp = e */
+	F("sqrt(exp) =",VpSqrt(sqrt,exp));                   /* sqrt= sqrt(e) */
+	F("log(sqrt) =",VpLog(exp,sqrt));                    /* exp = log(e)/2 ==> 0.5 */
+
+	VpFree(&sqrt);
+	VpFree(&exp);
 	VpFree(&pi);
 	VpFree(&pi2);
+	VpFree(&zero);
 	VpFree(&one);
 	VpFree(&two);
 	VpFree(&r);
@@ -33,7 +42,9 @@ void test1()
 void test2()
 {
 	VP_HANDLE c = VpAlloc("5555555555.5555555555",1);
-	VP_HANDLE a = VpAllocStorage(VpMaxLength(c));
+	VP_HANDLE a = VpMemAlloc(VpMaxLength(c));
+	F("c=",c);
+	F("a=",VpAsgn(a,c,1));
     VpAsgn(a,c,1);	F("ScaleRound ( 0)= ",VpScaleRound (c, 0));
     VpAsgn(c,a,1); 	F("ScaleRound ( 2)= ",VpScaleRound (c, 2));
     VpAsgn(c,a,1);	F("ScaleRound (-2)= ",VpScaleRound (c,-2));
@@ -52,6 +63,7 @@ int main(int argc, char* argv[])
 {
 	test1();
 	test2();
+
 	E("Inf =",VpAlloc("Infinity",1));
 	F("+Inf=",VpAlloc("+Infinity",1));
 	E("-Inf=",VpAlloc("-Infinity",1));
@@ -62,6 +74,7 @@ int main(int argc, char* argv[])
 
 	F("+0  =",VpAlloc("+0",1));
 	E("-0  =",VpAlloc("-0",1));
+
 	return 0;
 }
 

@@ -106,7 +106,7 @@ static int
    mx ... number of digits the allocated Real can have.
 */
 VP_EXPORT(VP_HANDLE)
-    VpAllocCase(VP_UINT m)
+    VpMemAlloc(VP_UINT m)
 {
     int    mx  = (m+BASE_FIG-1)/BASE_FIG + 1; 
     VP_UINT s  = sizeof(Real)+mx*sizeof(VP_DIGIT); /* frac[] has mx+1 elements(intensional) */
@@ -792,11 +792,22 @@ static void
     VpInit()
 {
 	/*
-	 BASE must be 10**n  (n=BASE_FIG)
-	 And BASE*BASE must be retresented by 1 VP_DIGIT.
-	 To check BASE*BASE is within VP_DIGIT, BASE-((BASE)*(BASE))/BASE == 0.
-	 If BASE*BASE overflows BASE-((BASE)*(BASE))/BASE will not be zero.
-	*/
+	  BASE must be 10**n  (n=BASE_FIG)
+	  And BASE*BASE must be retresented by 1 VP_DIGIT.
+	  To check BASE*BASE is within VP_DIGIT, BASE-((BASE)*(BASE))/BASE == 0.
+	  If BASE*BASE overflows BASE-((BASE)*(BASE))/BASE will not be zero.
+	  -------------------------
+	  VP_DIGIT v;
+ 	  v        = 10;
+	  BASE_FIG = 0;
+	  while((v-((v*v)/v))==0) {
+		  BASE = v;
+		  BASE_FIG++;
+		  v   *= 10;
+	  }
+	  -------------------------
+   */
+
     ASSERT(sizeof(VP_DIGIT)==4 || sizeof(VP_DIGIT)==8);
     if(sizeof(VP_DIGIT)==4) {
         /* 32-bit */ 
@@ -1544,7 +1555,7 @@ VP_EXPORT(VP_HANDLE)
        /* necessary to be able to store */
        /* at least mx digits. */
        /* szVal==NULL ==> allocate zero value. */
-       vp = (Real*)VpAllocCase(mx);
+       vp = (Real*)VpMemAlloc(mx);
        if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
        VpSetZero((VP_HANDLE)vp,1);    /* initialize vp to zero. */
        return (VP_HANDLE)vp;
@@ -1556,19 +1567,19 @@ VP_EXPORT(VP_HANDLE)
     /* Check on Inf & NaN */
     if (StrCmp(szVal, SZ_PINF) == 0 ||
         StrCmp(szVal, SZ_INF)  == 0 ) {
-        vp = (Real*)VpAllocCase(1);
+        vp = (Real*)VpMemAlloc(1);
         if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
         VpSetPosInf((VP_HANDLE)vp);
         return (VP_HANDLE)vp;
     }
     if (StrCmp(szVal, SZ_NINF) == 0) {
-        vp = (Real*)VpAllocCase(1);
+        vp = (Real*)VpMemAlloc(1);
         if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
         VpSetNegInf((VP_HANDLE)vp);
         return (VP_HANDLE)vp;
     }
     if (StrCmp(szVal, SZ_NaN) == 0) {
-        vp = (Real*)VpAllocCase(1);
+        vp = (Real*)VpMemAlloc(1);
         if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
         VpSetNaN((VP_HANDLE)vp);
         return (VP_HANDLE)vp;
@@ -1627,7 +1638,7 @@ VP_EXPORT(VP_HANDLE)
     }
 
     mx = Max(ni + nf + 1, mx);
-    vp = (Real*)VpAllocCase(mx);
+    vp = (Real*)VpMemAlloc(mx);
     if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
     return VpCtoV(vp, sign, szVal, ni, &szVal[ipf], nf, signe, &szVal[ipe], ne);
 }
@@ -2525,7 +2536,7 @@ converge:
 #define MEM_CHECK(c,m,msg)  \
 if(VpMaxLength(c)<=(m)) {\
     VpFree(&c);\
-    c=(VP_HANDLE)VpAllocCase((m+BASE_FIG));\
+    c=(VP_HANDLE)VpMemAlloc((m+BASE_FIG));\
     if(VpIsInvalid(c)) {VpException(c,msg);goto ErExit;}\
 }
 

@@ -50,18 +50,20 @@ Copylight (c) 2018 Shigeo Kobayashi. All rights reserved.
 The Bigdecimal is a variable precision decimal arithmetic C/C++ library.<br/>
 Using Bigdecimal, you can obtain any number of significant digits in computation.<p/>
 This software has been tested on Windows-10(32-bit&amp;64-bit) and Linux(32-bit CentOS-5 &amp; 64-bit CentOS-7).<br/>
- <!--
-<a href="http://www.tinyforest.jp/oss/bigdecimal.zip">Windows binary files(32-bit:Test.exe,bigdecimal.lib,bigdecimal.lib) can be downloaded here.</a><br/>
- -->
-<H2>Usage</H2>
+<div align="right">
+<a href="http://www.tinyforest.jp/oss/bigdecimal.zip">Windows binary files(32-bit:Test.exe,bigdecimal.lib,bigdecimal.lib) can be downloaded here.</a>
+</div>
+
+<H2>Introduction</H2>
 To use Bigdecimal,"bigdecimal.h" should be included in your C/C++ source program.<br/>
 And,Bigdecimal variable must be declared before it is used.<br/>
 To declare Bigdecimal variable, use VP_HANDLE which is defined in the bigdecimal.h.<br/>
 Bigdecimal variable(VP_HANDLE) is simply a pointer to the structure Real(see bigdecimal.h) which is allocated somewhere and consists of an array of digits and other informations.<br/>
+On API interface explanation of this documentation,<u><b>a,b,c,and r are Bigdecimal</b> variables(VP_HANDLE)</u> and <u><b>i,f,m,n are integers</b></u>(signed or unsigned depending on the context) unless otherwise noted.
 
 <h3>Allocation &amp; Free</h3>
 Unlike double or float in C/C++,it is noted that Bigdecimal variable(VP_HANDLE) is a container of digits with certain size.<br/>
-Any Bigdecimal variable must be allocated by <b>VpAlloc()</b> or <b>VpAllocCase()</b> before it is used,and freed(by <b>VpFree()</b>) if it is no more used as following example.
+Any Bigdecimal variable must be allocated by <b>VpAlloc()</b> or <b>VpMemAlloc()</b> before it is used,and freed(by <b>VpFree()</b>) if it is no more used as following example.
 <pre><code>
 #include &lt;stdio.h&gt;
 #include "bigdecimal.h"
@@ -73,28 +75,32 @@ int main(int argc, char* argv[])
     return 0;
 }
 </code></pre>
-The first argument of VpAlloc() is the string representing numeric number(initial value:+1234567890...),and the second argument is the maximum number of digits the variable 'a' can store(100).<br/>
-
+<table>
+<tr><th>Bigdecimal functions</th><th>meaning</th></tr>
+<tr><td> c = VpAlloc(st,m)</td><td>Allocates Bigdecimal variable and it's value is st.</td></tr>
+<tr><td> c = VpMemAlloc(m)</td><td>Allocates Bigdecimal variable(the value is 0).</td></tr>
+<tr><td> c = VpClone(a)</td><td>Creates a copy of a.</td></tr>
+<tr><td> VpFree(&c)</td><td>Frees memories allocated to c.</td></tr>
+</table>
+The first argument(st) of VpAlloc() is the string representing numeric number(initial value:+1234567890...),and the second argument is the maximum number of digits the variable 'a' can store(m).<br/>
 
 The length of initial value has priority if the second argument value is too small.<br/>
 Bigdecimal offers <b>VpClone(a)</b> to clone(to create a new copy of a) the specified Bigdecimal variable.<br/> 
 Bigdecimal also offers <b>VpAllocCount()</b> which is the number of Bigdecimal variables not yet freed.<p/>
 
 As the Bigdecimal variable is the container of the digits,Bigdecimal offers two functions:
-<ol>
-<li><b>VpMaxLength(a)</b><br/>
-Maximum number of digits 'a' can hold.
-</li>
-<li><b>VpCurLength(a)</b><br/>
-Number of digits currently stored in 'a'
-</li>
-</ol>
-VpMaxLength(a) and VpCurLength(a) return actual sizes that are slightly bigger than the values spcecified due to internal logic.<br/>
+<table>
+<tr><th>Bigdecimal functions</th><th>meaning</th></tr>
+<tr><td>m = VpMaxLength(c)</td><td>m is the maximum number of digits c can store.</td></tr>
+<tr><td>n = VpCurLength(c)</td><td>n is the number of digits currently c stored in c.</td></tr>
+</table>
+VpMaxLength(c) and VpCurLength(c) return actual sizes that may be slightly bigger than the values spcecified due to internal logic.<br/>
 
-It is noted that <b>VpMaxLength(a) &gt;=VpCurLength(a) &gt; 0</b>.<p/>
+It is noted that <b>VpMaxLength(c) &gt;=VpCurLength(c) &gt; 0</b>.<p/>
 
-If the initial value is zero,then the initial value string can be omitted and <b>VpAllocCase(m)</b> can be used instead of VpAlloc() where the argument m is the maximum number of digits as same as the second argument of VpAlloc().
-</ul>
+If the initial value is zero,then the initial value string can be omitted and <b>VpMemAlloc(m)</b> can be used instead of VpAlloc() where the argument m is the maximum number of digits as same as the second argument of VpAlloc().
+
+
 <h3>Computation</h3>
 Once allocated,Bigdecimal variables can be used in computation like the following program.
 <pre><code>
@@ -102,7 +108,7 @@ int main(int argc, char* argv[])
 {
     VP_HANDLE a = VpAlloc("+1234567890.1234567890 123456789000000E0",100);
     VP_HANDLE b = VpAlloc("20",10);
-    VP_HANDLE c = VpAllocCase(150);
+    VP_HANDLE c = VpMemAlloc(150);
     VpPrintE(stdout,VpMul(c,a,b)); /* c=a*b ===> 0.2469135780 2469135780 246913578E11 */
     VpFree(&a);
     VpFree(&b);
@@ -110,47 +116,47 @@ int main(int argc, char* argv[])
     return 0;
 }
 </code></pre>
-Bigdecimal offers functions for arithmetic operations(every function returns resulting 'c') for convenience of the programming.<br/>
-Only 3 functions(VpAlloc(),VpAllocCase() and VpClone()) create new Bigdecimal variable(Other functions never do that).<br/>
+Bigdecimal offers functions for arithmetic operations(most function returns resulting 'c') for convenience of the programming.<br/>
+Only 3 functions(VpAlloc(),VpMemAlloc() and VpClone()) create new Bigdecimal variable(Other functions never do that).<br/>
 It should strongly be noted that,many function(except 3 functions above) return Bigdecimal variables but they are never new ones. </b><br/>
  For instance, <b>VpAdd(c,a,b)</b> computes a+b first,saves the result to c,and returns c itself.
 
 
 <table>
-<tr><th>Bigdecimal function</th><th>meaning</th><th>notes</th></tr>
-<tr><td><b>VpAsgn(c,a,op)</b></td><td> c = a (op=1) or c = -a (op=-1)</td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(b)</td></tr>
-<tr><td><b>VpAdd(c,a,b)</b></td><td> c = a+b</td></td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(a+b)</td></tr>
-<tr><td><b>VpSub(c,a,b)</b></td><td> c = a-b</td></td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(a-b)</td></tr>
-<tr><td><b>VpMul(c,a,b)</b></td><td> c = a*b</td></td><td><b>VpMaxLength(c)&gt;VpCurLength(a)+VpCurLength(b)<sup>*</sup></b></td></tr>
-<tr><td><b>VpDiv(c,r,a,b)</b></td><td> c = a/b (r is a remainder)</td><td>Because r = a - c*b is always satisfied,
+<tr><th>Bigdecimal functions</th><th>meaning</th><th>notes</th></tr>
+<tr><td><b>c = VpAsgn(c,a,op)</b></td><td> c = a (op=1) or c = -a (op=-1)</td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(b)</td></tr>
+<tr><td><b>c = VpAdd(c,a,b)</b></td><td> c = a+b</td></td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(a+b)</td></tr>
+<tr><td><b>c = VpSub(c,a,b)</b></td><td> c = a-b</td></td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(a-b)</td></tr>
+<tr><td><b>c = VpMul(c,a,b)</b></td><td> c = a*b</td></td><td><b>VpMaxLength(c)&gt;VpCurLength(a)+VpCurLength(b)<sup>*</sup></b></td></tr>
+<tr><td><b>c = VpDiv(c,r,a,b)</b></td><td> c = a/b (r is a remainder)</td><td>Because r = a - c*b is always satisfied,
 <b>VpMaxLength(r)&gt;Max(VpCurLength(r),VpCurLength(c)+VpCurLength(b))<sup>*</sup></b></td></tr>
-<tr><td><b>VpCmp(a,b)</b></td><td> 1(if a&gt;b),0(if a==b),-1(if a&lt;b),VP_ERROR_NON_NUMERIC(if uncomparable).</td><td>return value is an integer. </td></tr>
+<tr><td><b>f = VpCmp(a,b)</b></td><td> 1(if a&gt;b),0(if a==b),-1(if a&lt;b),VP_ERROR_NON_NUMERIC(if uncomparable).</td><td>return value is an integer. </td></tr>
 
-<tr><td><b>VpFrac(c,a)</b></td><td> copies all digits after the decimal point of a to c(|c|&lt;1)</td><td>  </td></tr>
-<tr><td><b>VpFix(c,a)<br/>VpInt(c,a)</b></td><td> copies all digits before the decimal point of a to c(|c|&gt;=1)</td><td>  </td></tr>
-<tr><td><b>VpAbs(c)</b></td><td> c = |c|</td><td>  </td></tr>
-<tr><td><b>VpExponent(c)</b></td><td> returns n,where c=0.xxxxxxx10**n</td><td>n is an integer.</td></tr>
-<tr><td><b>VpEffectiveDigits(c)</b></td><td>returns n,where n is the number of effective digits.</td><td>n is an integer for which leading and trailing 0's are not counted.  </td></tr>
-<tr><td><b>VpRevertSign(c)<br/>VpNegate(c)</b></td><td> c = -c</td><td>  </td></tr>
-<tr><td><b>VpGetSign(c)</b></td><td>1(if c&gt;0),(-1 if c&lt;0)</td><td>return value is an integer.  </td></tr>
-<tr><td><b>VpSetSign(c,f)</b></td><td>sets c=|c|(if f&gt;0),c=-|c|(if f&lt;0)</td><td>f is an integer.</td></tr>
+<tr><td><b>c = VpFrac(c,a)</b></td><td> copies all digits after the decimal point of a to c(|c|&lt;1)</td><td>  </td></tr>
+<tr><td><b>c = VpFix(c,a)<br/>c = VpInt(c,a)</b></td><td> copies all digits before the decimal point of a to c(|c|&gt;=1)</td><td>  </td></tr>
+<tr><td><b>c = VpAbs(c)</b></td><td> c = |c|</td><td>  </td></tr>
+<tr><td><b>n = VpExponent(c)</b></td><td> returns n,where c=0.xxxxxxx10**n</td><td>n is an integer.</td></tr>
+<tr><td><b>n = VpEffectiveDigits(c)</b></td><td>returns n,where n is the number of effective digits.</td><td>n is an integer for which leading and trailing 0's are not counted.  </td></tr>
+<tr><td><b>c = VpRevertSign(c)<br/>c = VpNegate(c)</b></td><td> c = -c</td><td>  </td></tr>
+<tr><td><b>f = VpGetSign(c)</b></td><td>1(if c&gt;0),(-1 if c&lt;0)</td><td>return value is an integer.  </td></tr>
+<tr><td><b>c = VpSetSign(c,f)</b></td><td>sets c=|c|(if f&gt;0),c=-|c|(if f&lt;0)</td><td>f is an integer.</td></tr>
 </table>
 
-* <b>VpMul() or VpDiv() returns NaN,when VpMaxLength(c) or VpMaxLength(r) does not satisfy above size limit.</b><br/>
+* <b><u>VpMul() or VpDiv() returns NaN</u>,when VpMaxLength(c) or VpMaxLength(r) does not satisfy above size limit.</b><br/>
 * VpDiv() returns Infinity,if the denominator b is zero.<br/>
 * VpDiv() returns NaN,if 0/0 is done.<p/>
 
 Bigdecimal also offers some mathematical functions(most functions return resulting 'c').
 <table>
-<tr><th>Bigdecimal function</th><th>meaning</th><th>notes</th></tr>
-<tr><td><b>VpSqrt(c,a)</b></td><td> c = a<sup>1/2</sup></td><td>the final few digits of c may not be exact.</td></tr>
-<tr><td><b>VpPI(c)</b></td><td> c = 3.141592....</td></td><td>the final few digits of c may not be exact.</td></tr>
-<tr><td><b>VpSin(c,a)</b></td><td> c = sin(a)</td></td><td> see Note<sup>*</sup>  </td></tr>
-<tr><td><b>VpCos(c,a)</b></td><td> c = cos(a)</td></td><td>  see Note<sup>*</sup>  </td></tr>
-<tr><td><b>VpAtan(c,a)</b></td><td> c = tan<sup>-1</sup>(a)</td></td><td> |a|&lt;=1, see Note<sup>*</sup> </td></tr>
-<tr><td><b>VpExp(c,a)</b></td><td> c = e<sup>a</sup></td><td> see Note<sup>*</sup>  </td></tr>
-<tr><td><b>VpLog(c,a)</b></td><td> c = log<sub>e</sub>a</td><td>  0&lt;a&lt= 2, see Note<sup>*</sup> </td></tr>
-<tr><td><b>VpPower(c,a,n)</b></td><td> c = a<sup>n</sup></td><td> n must be an ingteger.</td></tr>
+<tr><th>Bigdecimal functions</th><th>meaning</th><th>notes</th></tr>
+<tr><td><b>c = VpSqrt(c,a)</b></td><td> c = a<sup>1/2</sup></td><td>the final few digits of c may not be exact.</td></tr>
+<tr><td><b>c = VpPI(c)</b></td><td> c = 3.141592....</td></td><td>the final few digits of c may not be exact.</td></tr>
+<tr><td><b>c = VpSin(c,a)</b></td><td> c = sin(a)</td></td><td> see Note<sup>*</sup>  </td></tr>
+<tr><td><b>c = VpCos(c,a)</b></td><td> c = cos(a)</td></td><td>  see Note<sup>*</sup>  </td></tr>
+<tr><td><b>c = VpAtan(c,a)</b></td><td> c = tan<sup>-1</sup>(a)</td></td><td> |a|&lt;=1, see Note<sup>*</sup> </td></tr>
+<tr><td><b>c = VpExp(c,a)</b></td><td> c = e<sup>a</sup></td><td> see Note<sup>*</sup>  </td></tr>
+<tr><td><b>c = VpLog(c,a)</b></td><td> c = log<sub>e</sub>a</td><td>  0&lt;a&lt= 2, see Note<sup>*</sup> </td></tr>
+<tr><td><b>c = VpPower(c,a,n)</b></td><td> c = a<sup>n</sup></td><td> n must be an ingteger.</td></tr>
 </table>
 
 * In most functions,VpMaxLength(c) digits are stored to resulting c.<p/>
@@ -167,10 +173,10 @@ This is also applies to log(ab)=log(a)+log(b),where a and b must be in range 0&l
 #define F(H,V) printf(H);VpPrintF(stdout,V);printf("\n");
 #define E(H,V) printf(H);VpPrintE(stdout,V);printf("\n");
 
-    VP_HANDLE sqrt2 = VpAllocCase(100);
-    VP_HANDLE pi    = VpAllocCase(100);
-    VP_HANDLE pi2   = VpAllocCase(100);
-    VP_HANDLE one   = VpAllocCase(100);
+    VP_HANDLE sqrt2 = VpMemAlloc(100);
+    VP_HANDLE pi    = VpMemAlloc(100);
+    VP_HANDLE pi2   = VpMemAlloc(100);
+    VP_HANDLE one   = VpMemAlloc(100);
     VP_HANDLE two   = VpAlloc("2",1);
     VP_HANDLE r;
     VP_UINT   m;
@@ -197,41 +203,47 @@ sin(pi2)  = 0.9999999999 9999999999 9999999999 9999999999 9999999999 9999999999 
 </pre>
 As series expansion is adopted for math functions,maximum iteration count can be set by the user.
 <table>
+<tr><th>Bigdecimal functions</th><th>meaning</th></tr>
 <tr><td>m = VpGetMaxIterationCount()</td><td>returns maximum iteration count(default=10000) </td></tr>
-<tr><td>VpSetMaxIterationCount(m)</td><td>sets maximum iteration count to m. </td></tr>
-<tr><td>n=VpGetIterationCount()</td><td>returns iteration count spent by the most recent computation.</td></tr>
+<tr><td>m = VpSetMaxIterationCount(m)</td><td>sets maximum iteration count to m. </td></tr>
+<tr><td>n = VpGetIterationCount()</td><td>returns iteration count spent by the most recent computation.</td></tr>
 </table>
 
-<h3>Display/Print</h3>
+<h2>Display/Print</h2>
 The computation results must be converted into human readable form.<br/>
-<ol>
-<li>int VpPrintE(FILE *fp, VP_HANDLE h): ==&gt; print h to fp in E-format.</li>
-<li>int VpPrintF(FILE *fp, VP_HANDLE h): ==&gt; print h to fp in F-format.</li>
-</ol>
+<table>
+<tr><th>Bigdecimal functions</th><th>meaning</th></tr>
+<tr><td>n = VpPrintE(fp,c)</td><td> print c to fp in E-format.</td></tr>
+<tr><td>n = VpPrintF(fp,c)</td><td> print c to fp in F-format.</td></tr>
+</table>
+where fp is a stream to which the output is sent,and n is a number of characters printed.<p/>
+
 Bigdecimal value is printed like:<blockquote>
  E-format ==> 0.xxxxxxxxxx....Eeee<br/>
  F-format ==> xxxxxxxx.yyyyyyyyyyy<br/>
 </blockquote> 
 where x,y and e are digits('0'-'9').<p/>
 Bigdecimal value can be converted to string(character array).<br>
-<ol>
-<li>char *VpToStringE(VP_HANDLE h,char *szE): szE &lt;== E-format.</li>
-<li>char *VpToStringF(VP_HANDLE h,char *szF): szF &lt;== F-format.</li>
-</ol>
+<table>
+<tr><th>Bigdecimal functions</th><th>meaning</th></tr>
+<tr><td>char *szE = VpToStringE(c,szE)</td><td>szE &lt;== E-format of c.</td></tr>
+<tr><td>char *szF = VpToStringF(c,szF)</td><td>szF &lt;== F-format of c.</td></tr>
+</table>
 The array size of szE and szF must be equal to or greater than the value returned by<br/>
-<pre>
-  VP_UINT VpStringLengthE(VP_HANDLE h),
-  VP_UINT VpStringLengthF(VP_HANDLE h)
-</pre>
+<table>
+<tr><th>Bigdecimal functions</th><th>meaning</th></tr>
+<tr><td>m = VpStringLengthE(c)</td><td>m is a maximum character array size to represent c in E-format.</td></tr>
+<tr><td>m = VpStringLengthF(c)</td><td>m is a maximum character array size to represent c in F-format.</td></tr>
+</table>
 respectively.<p/>
 
 <b><u>DigitSeparationCount</u></b><br/>
 Because the output string length of the Bigdecimal can be very long,you can insert a character(DigitSeparator) in every DigitSeparationCount in output string for readablity.<br/>
 This can be zero which means the string is not separated.
-<pre>
+<pre><b>
   VP_UINT  VpGetDigitSeparationCount();          /* default = 10 */
   VP_UINT  VpSetDigitSeparationCount(VP_UINT m);
-</pre>
+</b></pre>
 <p/>
 
 <b><u>DigitSeparator</u></b><br/>
@@ -239,10 +251,10 @@ The character to insert to output string.<br/>
 This can not be '+','-', or any digit character.<br/>
 This character can also be inserted to input string at any place except for exponent part for VpAlloc(),
 
-<pre>
+<pre><b>
   char  VpGetDigitSeparator();                  /* default = ' ' */
   char  VpSetDigitSeparator(char c);
-</pre>
+</b></pre>
 
 <b><u>DigitLeader</u></b><br/>
 This can be one of '\0','+' or ' '.<br/>
@@ -252,21 +264,22 @@ This character applies for positive number.<br/>
 <li> ' ' ... ' ' is always put on positive number.</li>
 <li> '\0' ... Nothing is put on positive number.</li>
 </ul>
-<pre>
+<pre><b>
   char  VpGetDigitLeader();                     /* default = ' ' */
   char  VpSetDigitLeader(char c);
-</pre>
+</b></pre>
 
 
-<h3>Rounding operation</h3>
+<h2>Rounding operation</h2>
 Suppose C and A are Bigdecimal variables. The value assignment from A to C(C=A) is done by <b>VpAsgn(C,A,1)</b>.<br>If VpMaxLength(C) &lt; VpCurLength(A),then all digits of A can not be copied to C and the default rounding operation will be done. <br/>
 The default round operation is done in other cases such as addition or subtraction(internal rounding).<br/>
 To set or get the default rounding operation use:<p/>
-<pre>
- int VpGetRoundMode()
- int VpSetRoundMode(int m)
-</pre>
-where m is the one of default rouding modes listed bellow.
+<table>
+<tr><th>Bigdecimal functions</th><th>meaning</th></tr>
+<tr><td>f = VpGetRoundMode()</td><td> f is a rounding mode listed bellow.</td></tr>
+<tr><td>f = VpSetRoundMode(f)</td><td> f is a rounding mode listed bellow.</td></tr>
+</table>
+where f is the one of default rouding modes listed bellow.
 <table>
       <TBODY>
       <TR>
@@ -295,20 +308,22 @@ where m is the one of default rouding modes listed bellow.
 
 The position of round operation can explicitly specified by following 2 functions.<br/>
 Both function return resulting c.
-<ul>
-<li>VP_HANDLE VpScaleRound(VP_HANDLE c, int ixRound)<br/>
-ixRound is the position of round operation mesured from decimal point.<br/>
-If <b>ixRound&gt;=0</b>,then the (ixRound+1)th digit counted from the decimal point to right direction is processed(resulting number of digits after decimal point is less than or equal to ixRound).<br/>
-If <b>ixRound&lt;0</b>,then the ixRound-th digit counted from the decimal point to left direction is processed(at least n 0's are placed from the decimal point to left). <p/>
-</li>
-<li> VP_HANDLE VpLengthRound(VP_HANDLE c, int ixRound)
-Round operation is done at ixRound position counted from the left side of the number.
-</li>
-</ul>
+<table>
+<tr><th>Bigdecimal functions</th><th>meaning</th></tr>
+<tr><td>c = VpScaleRound(c,i)</td><td>
+i is the position of round operation mesured from decimal point.<br/>
+If <b>i&gt;=0</b>,then the (i+1)th digit counted from the decimal point to right direction is processed(resulting number of digits after decimal point is less than or equal to i).<br/>
+If <b>i&lt;0</b>,then the i-th digit counted from the decimal point to left direction is processed(at least i 0's are placed from the decimal point to left).
+ </td></tr>
+<tr><td> c = VpLengthRound(c,i)</td><td>
+Round operation is done at the i-th position counted from the left side of the number.
+ </td></tr>
+</table>
+
 <u><b>Example:</b></u>
 <pre><code>
     VP_HANDLE c = VpAlloc("5555555555.5555555555",1);
-    VP_HANDLE a = VpAllocCase(VpMaxLength(c));
+    VP_HANDLE a = VpMemAlloc(VpMaxLength(c));
     VpAsgn(a,c,1); F("ScaleRound ( 0)= ",VpScaleRound (c, 0));
     VpAsgn(c,a,1); F("ScaleRound ( 2)= ",VpScaleRound (c, 2));
     VpAsgn(c,a,1); F("ScaleRound (-2)= ",VpScaleRound (c,-2));
@@ -327,40 +342,40 @@ LengthRound( 8)=  5555555600
 
 In above examples,the rounding operation is done by default rounding mode(VP_ROUND_HALF_UP).<br/>
 You can explicitly specify rounding mode(mode) by following functions.
-<pre>
+<pre><b>
   VP_EXPORT(VP_HANDLE) VpAsgn2(VP_HANDLE c, VP_HANDLE a, int isw,int mode)
   VP_EXPORT(VP_HANDLE) VpScaleRound2(VP_HANDLE a, int ixRound,int mode)
   VP_EXPORT(VP_HANDLE) VpLengthRound2(VP_HANDLE a, int ixRound,int mode)
-</pre>
+</b></pre>
 
 <H2>Infinity,NaN(Not a Number),Zero</H2>
 Bigdecimal supports Infinity,Zero,and NaN as defined in IEEE 754.<br/>
 Infinity,Zero,and NaN are specially handled in Bigdecimal.<p/>
 <b><u>Creation</u></b>
 <ul>
-<li>Infinity<br/>
+<li><b>Infinity</b><br/>
 Allocation:VpAlloc("Infinity",1),VpAlloc("+Infinity",1),VpAlloc("-Infinity",1)<br/>
 Computation: 1/0,-1/0 ...
 </li>
-<li>NaN<br/>
+<li><b>NaN</b><br/>
 Allocation:VpAlloc("NaN",1)<br/>
 Computation: 0/0,Infinity/Infinity,NaN*1,NaN+1 ...
 </li>
-<li>Zero<br/>
+<li><b>Zero</b><br/>
 Allocation:VpAlloc("0",1),VpAlloc("+0",1),VpAlloc("-0",1)<br/>
 Computation: 1*0,-1*0 ...
 </li>
 </ul>
 NaN(Not a number) can be obtained by undefined computation like 0.0/0.0  or Infinity-Infinity.<br/>
 Any computation including NaN results to NaN.<br/>
-Comparisons with NaN never become true,including comparison with NaN itself. <p/>
+<u>Comparisons with NaN never become true,including comparison with NaN itself</u>. <p/>
 
 Zero has two different variations as +0.0 and -0.0. But,still, +0.0==-0.0 is true.
 
 <H2>Error handling</H2>
-VpAlloc() may return non VP_HANDLE value(error code) if the first argument contains bad character or memory allocation fails.
-VpAllocCase() may also return non VP_HANDLE value if it fails to allocate memories.
-Because VpAlloc() or VpAllocCase() may return an error code,it is very important to examine the returned value or the program may crash.<p/>
+VpAlloc() may return non VP_HANDLE value(error code) if the first argument contains bad character or memory allocation fails.<br/>
+VpMemAlloc() may also return non VP_HANDLE value if it fails to allocate memories.<br/>
+Because VpAlloc() or VpMemAlloc() may return an error code,it is very important to examine the returned value or the program may crash.<p/>
 To check if the returned value is valid VP_HANDLE,use VpValid() or VpInvalid() as:
 <pre><code>
    VP_HANDLE h = VpAlloc("12345+123",2); /* ==> ERROR:  + is placed at illegal position. */
@@ -372,11 +387,12 @@ To check if the returned value is valid VP_HANDLE,use VpValid() or VpInvalid() a
 </code></pre>
 Checking on the return value is always valid.<br/>
 To check the VP_HANDLE, use following macros.
-<ul>
-<li>VpIsInvalid(h)<br> 1 if h is invalid,0 if h is valid VP_HANDLE.</li>
-<li>VpIsValid(h)<br/>  0 if h is invalid,1 if h is valid VP_HANDLE.</li>
-<li>VpIsNumeric(h)<br/>1 if h is valid and is not NaN nor Infinity,0 of h is invalid,h is NaN or Infinity.</li>
-</ul>
+<table>
+<tr><th>macros</th><th>meaning</th></tr>
+<tr><td>VpIsInvalid(c)</td><td> 1 if c is invalid,0 if c is valid VP_HANDLE.</td></tr>
+<tr><td>VpIsValid(h)</td><td>  0 if h is invalid,1 if h is valid VP_HANDLE.</td></tr>
+<tr><td>VpIsNumeric(h)</td><td> 1 if h is valid and is not NaN nor Infinity,0 of h is invalid,h is NaN or Infinity.</td></tr>
+</table>
 
 
 <u>To set exception handler is also quite usefull(strongly recommended)</u>.
@@ -408,17 +424,19 @@ where xxxx is One(1),Positive Zero(+0),Negative Zero(-0),Zero(0),NaN,Positive in
 Negative infinity(-Infinity) or Infinity respectively.<br/>
 And VpSetxxxx(c,[f]) set c to xxxx as same as above where f is a sign to set if there.
 <table>
-<tr><td>VpIsOne(c)<br/>VpSetOne(c)</td><td>  ?1,c=1  </td></tr>
-<tr><td>VpIsPosZero(c)<br/>VpSetPosZero(c)</td><td>?+0, c=+0  </td></tr>
-<tr><td>VpIsNegZero(c)<br/>VpSetNegZero(c)</td><td>?-0, c=-0  </td></tr>
-<tr><td>VpIsZero(c)<br/>VpSetZero(c,f)</td><td>?0,c=0 (+0 and -0))  </td></tr>
-<tr><td>VpIsNaN(c)<br/>VpSetNaN(c)</td><td> ?NaN,c=NaN </td></tr>
-<tr><td>VpIsPosInf(c)<br/>VpSetPosInf(c)</td><td>?+Infinity,c=+Infinity  </td></tr>
-<tr><td>VpIsNegInf(c)<br/>VpSetNegInf(c)</td><td>?-Infinity,c=-Infinity  </td></tr>
-<tr><td>VpIsInf(c)<br/>VpSetInf(c,f)</td><td>?Infinity,c=Infinity (Infinity==+Infinity)  </td></tr>
+<tr><th>Bigdecimal functions</th><th>meaning</th></tr>
+<tr><td>f = VpIsOne(c)<br/>c = VpSetOne(c)</td><td> 1 if c==0<br/>c=1  </td></tr>
+<tr><td>f = VpIsPosZero(c)<br/>c = VpSetPosZero(c)</td><td>1 if c==+0<br/> c=+0  </td></tr>
+<tr><td>f = VpIsNegZero(c)<br/>c = VpSetNegZero(c)</td><td>1 if c==-0<br/> c=-0  </td></tr>
+<tr><td>f = VpIsZero(c)<br/>c = VpSetZero(c,f)</td><td> 1 if c==0<br/>c=0 (+0 if f&gt;0, -0 if f&lt;0))  </td></tr>
+<tr><td>f = VpIsNaN(c)<br/>c = VpSetNaN(c)</td><td>  1 if c== NaN<br/>c=NaN </td></tr>
+<tr><td>f = VpIsPosInf(c)<br/>c = VpSetPosInf(c)</td><td>1 if c==+Infinity <br/>c=+Infinity  </td></tr>
+<tr><td>f = VpIsNegInf(c)<br/>c = VpSetNegInf(c)</td><td>1 if c==-Infinity <br/>c=-Infinity  </td></tr>
+<tr><td>f = VpIsInf(c)<br/>c = VpSetInf(c,f)</td><td>1 if c==Infinity<br/>c=Infinity (+Infinity if f&gt;0,-Infinity if f&lt;0)  </td></tr>
 </table>
 
 <H2>Bigdecimal structure</H2>
+Bigdecimal variable structure defined in bigdecimal.h.
 <pre><code>
 /*
  * VP representation
@@ -436,7 +454,7 @@ typedef struct {
                        /* Use VpSetTag() or VpGetTab() to access.         */
     int       exponent;/* Exponent part.                                  */
     int       sign;    /* Attributes of the value.                        */
-                       /*
+                       /* See VP_SIGN_xxxxxxx defined.
                         *        ==0 : NaN
                         *          1 : Positive zero
                         *         -1 : Negative zero
@@ -457,7 +475,9 @@ typedef struct {
 #define VP_SIGN_NEGATIVE_INFINITE -3 /* Negative infinite number */
 </code></pre>
 
-
+VP_DIGIT can be 32-bit or 64-bit unsigned integer(see bigdecimal.h).<br/>
+On 64-bit machine with 64-bit OS,better performance can be obtained by setting VP_DIGIT as 'unsigned long long'(64-bit).<br/>
+On 32-bit OS,VP_DIGIT can also be set to be 64-bit(unsigned long long) which may cause bad performance due to 64-bit emulation.
 <hr/>
 <div align="right">
 Shigeo Kobayashi 2018-11-21
