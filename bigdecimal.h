@@ -69,6 +69,7 @@ extern "C" {
 #define VP_DIGIT   unsigned long       /* Fraction part array (can be 64-bit:unsigned long long)   */
 #define VP_UINT    unsigned int        /* Common unsigned part   */
 
+VP_EXPORT(int) VpVersion(); /* returns Bigdecimal version. */
 
 /* VP-exception handle called from VP-routines if needed(error case). */
 typedef void (VP_EXCEPTION_HANDLER)(VP_HANDLE h,const char *pszMsg);

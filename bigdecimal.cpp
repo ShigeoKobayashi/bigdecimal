@@ -1,6 +1,6 @@
 /*
  *
- * BigDecimal(Variable decimal precision) C/C++ library.
+ * Bigdecimal(Variable decimal precision) C/C++ library.
  *
  * Copyright(C) 2012 by Shigeo Kobayashi(shigeo@tinyforest.jp)
  *
@@ -22,8 +22,10 @@ static VP_DIGIT BASE     = 10000L;   /* Base value(value must be 10**BASE_FIG) *
 static VP_DIGIT HALF_BASE = 0; /* = (BASE/2)       */
 static VP_DIGIT BASE1     = 0; /* = (BASE/10)      */
 static VP_UINT  DBLE_FIG  = 0; /* = (DBL_DIG+1): figure of double */
-static Real    *VpConstOne;    /* constant 1.0    */
-static Real    *VpConstPt5;    /* constant 0.5    */
+static Real    *VpConstOne;    /* constant  1.0    */
+static Real    *VpConstNOne;   /* constant -1.0    */
+static Real    *VpConstTwo;    /* constant  2.0    */
+static Real    *VpConstPt5;    /* constant  0.5    */
 
 static int     gAllocCount     = 0;                /* VP_HANDLE allocation count */
 static int     gRoundMode      = VP_ROUND_HALF_UP; /* Default rounding mode */
@@ -35,6 +37,8 @@ static char    gDigitLeader    = ' '; /* must be 0 or
                                        '+' ... '+' is printed for posotive number.
                                        ' ' ...  ' ' is printed for positive number.
                                        */
+
+VP_EXPORT(int) VpVersion() {return 1;}
 
 /*
    ================================================
@@ -829,15 +833,21 @@ static void
     /* Allocates Vp constants. */
     VpConstOne = (Real*)VpAlloc("1",1);
     VpConstPt5 = (Real*)VpAlloc("0.5",1);
+	VpConstNOne= (Real*)VpAlloc("-1",1);
+	VpConstTwo = (Real*)VpAlloc("2",1);
+
     gAllocCount = 0; /* Avobe 2 Reals are not counted. */
 }
 
 
 /*
+ *
  *   c = a / b,  remainder = r
  *   Because 'r = a - c * b' must be satisfied,
  *   following conditions are mandatory,otherwise NaN returned.
- *      r->MaxPrec > max(a->Prec,c-Prec+b->Prec) 
+ *      r->MaxPrec > max(a->Prec,c->MaxPrec+b->Prec) 
+ *   If r has enough size,then computation continues to c->MaxPrec.
+ *
  */
 VP_EXPORT(VP_HANDLE)
     VpDiv(VP_HANDLE hc, VP_HANDLE hr, VP_HANDLE ha, VP_HANDLE hb)
@@ -1465,7 +1475,7 @@ VP_EXPORT(char) VpSetDigitLeader(char c) {
 
 /* Sign */
 /* Change sign of a to a>0,a<0 if s = 1,-1 respectively */
-VP_EXPORT(VP_HANDLE) VpSetSign(VP_HANDLE a,int s)    {if((s)>0) ((Real*)a)->sign=(short)Abs((int)((Real*)a)->sign);else ((Real*)a)->sign=-(short)Abs((int)((Real*)a)->sign);return a;}
+VP_EXPORT(VP_HANDLE) VpSetSign(VP_HANDLE a,int s)    {if((s)>0) ((Real*)a)->sign=(int)Abs((int)((Real*)a)->sign);else ((Real*)a)->sign=-(int)Abs((int)((Real*)a)->sign);return a;}
 VP_EXPORT(int)       VpGetSign(VP_HANDLE a)          {return (int)((Real*)a)->sign;}
 VP_EXPORT(VP_HANDLE) VpRevertSign(VP_HANDLE a)       {((Real*)a)->sign=-(((Real*)a)->sign);return a;}
 VP_EXPORT(VP_HANDLE) VpAbs(VP_HANDLE c)       {((Real*)c)->sign=(((Real*)c)->sign)>0?((Real*)c)->sign:-((Real*)c)->sign;return c;}
@@ -1733,7 +1743,7 @@ VP_EXPORT(int)
                 ++nd;
                 ZeroSup = 0;    /* Set to print succeeding zeros */
             }
-            if(nd >= gDigitSeparationCount) {    /* print ' ' after every gDigitSeparationCount digits */
+            if(gDigitSeparationCount > 1 && nd >= gDigitSeparationCount) {    /* print ' ' after every gDigitSeparationCount digits */
                 nd = 0;
                 nc += fprintf(fp, "%c",gDigitSeparator);
             }
@@ -1784,7 +1794,7 @@ VP_EXPORT(int)
        fdot = 1;
        while(ex<0) {
           for(i=0;i<BASE_FIG;++i) {
-                if(gDigitSeparationCount>0 && nb>=gDigitSeparationCount) {
+                if(gDigitSeparationCount>1 && nb>=gDigitSeparationCount) {
                     nc += fprintf(fp, "%c", (char)gDigitSeparator);
                     nb = 0;
                 }
@@ -1802,7 +1812,7 @@ VP_EXPORT(int)
            m /= 10;
            nb--;
         }
-        if(gDigitSeparationCount>0) {
+        if(gDigitSeparationCount>1) {
             nb = gDigitSeparationCount - (nb % gDigitSeparationCount);
             if(nb>=gDigitSeparationCount) nb = 0;
         }
@@ -1818,7 +1828,7 @@ VP_EXPORT(int)
                 nn = e / m;
                 if(nn || isw) {
                     isw = 1;
-                    if(gDigitSeparationCount>0 && nb>=gDigitSeparationCount) {
+                    if(gDigitSeparationCount>1 && nb>=gDigitSeparationCount) {
                         if(ex != 0 || (i+1)>=n) nc += fprintf(fp, "%c", (char)gDigitSeparator);
                         nb = 0;
                     }
@@ -1831,7 +1841,7 @@ VP_EXPORT(int)
        } else {
            while(m) {
                 nn = e / m;
-                if(gDigitSeparationCount>0 && nb>=gDigitSeparationCount) {
+                if(gDigitSeparationCount>1 && nb>=gDigitSeparationCount) {
                     if(ex != 0 || (i+1)>=n) nc += fprintf(fp, "%c", (char)gDigitSeparator);
                     nb = 0;
                 }
@@ -1851,7 +1861,7 @@ VP_EXPORT(int)
     while(--ex>=0) {
         m = BASE;
         while(m/=10) {
-            if(gDigitSeparationCount>0 && nb>=gDigitSeparationCount) {
+            if(gDigitSeparationCount>1 && nb>=gDigitSeparationCount) {
                 nc += fprintf(fp, "%c", (char)gDigitSeparator);
                 nb = 0;
             }
@@ -1885,7 +1895,7 @@ VpStringLengthF(VP_HANDLE h)
              nc += BASE_FIG*((VP_UINT)ex - vp->Prec);
          }
     }
-    if(gDigitSeparationCount>0) nc += (nc+gDigitSeparationCount-1)/gDigitSeparationCount;
+    if(gDigitSeparationCount>1) nc += (nc+gDigitSeparationCount-1)/gDigitSeparationCount;
     return nc;
 }
 
@@ -1900,7 +1910,7 @@ VpStringLengthE(VP_HANDLE h)
     if(vp == NULL)   return 0;
     if(!VpIsNumeric((VP_HANDLE)vp)) return 32; /* not sure,may be OK */
     nc = BASE_FIG*(vp->Prec + 2)+6; /* 3: sign + exponent chars */
-    if(gDigitSeparationCount>0) nc += (nc+gDigitSeparationCount-1)/gDigitSeparationCount;
+    if(gDigitSeparationCount>1) nc += (nc+gDigitSeparationCount-1)/gDigitSeparationCount;
     return nc;
 }
 
@@ -1958,7 +1968,7 @@ VP_EXPORT(char *)
                 nd++;
                 ZeroSup = 0;    /* Set to print succeeding zeros */
             }
-            if(gDigitSeparationCount>0 && nd >= gDigitSeparationCount) {    /* print ' ' after every gDigitSeparationCount digits */
+            if(gDigitSeparationCount>1 && nd >= gDigitSeparationCount) {    /* print ' ' after every gDigitSeparationCount digits */
                 nd = 0;
                *psz++ = gDigitSeparator;
             }
@@ -2044,7 +2054,7 @@ VP_EXPORT(char*)
     while(psz[-1]=='0') *(--psz) = 0; // truncate trailing 0's.
     if(psz[-1]=='.') psz[-1] = 0;     // truncate final '.' if there.
 
-    if(gDigitSeparationCount<=0) return sz;
+    if(gDigitSeparationCount<=1) return sz;
     /* Now insert gDigitSeparator at every gDigitSeparationCount digit */
     // Find '.' position
     int ixDot = 0;
@@ -2868,6 +2878,9 @@ VP_EXPORT(VP_HANDLE)
     if(VpIsZero(x))              return VpSetZero(y,VP_SIGN(x));
     if (!VpHasVal((VP_HANDLE)x)) return VpException(VpSetNaN(y),"Invalid argument for VpAtan()");
 
+	if(VpCmp(x,(VP_HANDLE)VpConstNOne)<0)  VpException(VpSetNaN(y),"Invalid argument for VpAtan(x<-1)");
+	if(VpCmp(x,(VP_HANDLE)VpConstOne) >0)  VpException(VpSetNaN(y),"Invalid argument for VpAtan(x>1)");
+
     sig = (int)(((VpMaxLength(y)>VpMaxLength(x))?VpMaxLength(y):VpMaxLength(x))+BASE_FIG+1);
     x2 = VpAlloc("1",(VpCurLength(x)+1)*2);
     s  = VpAlloc("1",sig*2);
@@ -2941,6 +2954,7 @@ VP_EXPORT(VP_HANDLE)
     if(VpGetSign(x)<0)           return VpException(VpSetNaN(y),"Invalid argument for VpLog( Negative )");
     if(VpIsOne(x))               return VpSetZero(y,VP_SIGN(x));
     if (!VpHasVal((VP_HANDLE)x)) return VpException(VpSetNaN(y),"Invalid argument for VpLog()");
+	if(VpCmp(x,(VP_HANDLE)VpConstTwo)>0)  VpException(VpSetNaN(y),"Invalid argument for VpLog(x>2)");
 
     sig = (int)(((VpMaxLength(y)>VpMaxLength(x))?VpMaxLength(y):VpMaxLength(x))+BASE_FIG+1);
     c  = VpAlloc("1",2);

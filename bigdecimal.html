@@ -128,8 +128,7 @@ It should strongly be noted that,many function(except 3 functions above) return 
 <tr><td><b>c = VpAdd(c,a,b)</b></td><td> c = a+b</td></td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(a+b)</td></tr>
 <tr><td><b>c = VpSub(c,a,b)</b></td><td> c = a-b</td></td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(a-b)</td></tr>
 <tr><td><b>c = VpMul(c,a,b)</b></td><td> c = a*b</td></td><td><b>VpMaxLength(c)&gt;VpCurLength(a)+VpCurLength(b)<sup>*</sup></b></td></tr>
-<tr><td><b>c = VpDiv(c,r,a,b)</b></td><td> c = a/b (r is a remainder)</td><td>Because r = a - c*b is always satisfied,
-<b>VpMaxLength(r)&gt;Max(VpCurLength(r),VpCurLength(c)+VpCurLength(b))<sup>*</sup></b></td></tr>
+<tr><td><b>c = VpDiv(c,r,a,b)</b></td><td> c = a/b (r is a remainder)</td><td><b>VpMaxLength(r)&gt;Max(VpCurLength(a),VpMaxLength(c)+VpCurLength(b))<sup>*</sup></b></td></tr>
 <tr><td><b>f = VpCmp(a,b)</b></td><td> 1(if a&gt;b),0(if a==b),-1(if a&lt;b),VP_ERROR_NON_NUMERIC(if uncomparable).</td><td>return value is an integer. </td></tr>
 
 <tr><td><b>c = VpFrac(c,a)</b></td><td> copies all digits after the decimal point of a to c(|c|&lt;1)</td><td>  </td></tr>
@@ -478,6 +477,109 @@ typedef struct {
 VP_DIGIT can be 32-bit or 64-bit unsigned integer(see bigdecimal.h).<br/>
 On 64-bit machine with 64-bit OS,better performance can be obtained by setting VP_DIGIT as 'unsigned long long'(64-bit).<br/>
 On 32-bit OS,VP_DIGIT can also be set to be 64-bit(unsigned long long) which may cause bad performance due to 64-bit emulation.
+<h1>VPC(Variable Precision Calculator) for Bigdecimal API testing</h1>
+<table>
+<tr><th> Command </th>              </th><th> note </th><th> ------------ </th></tr>
+<tr><td>#?                          </td><td>   </td><td>   </td></tr>
+<tr><td>#=                          </td><td>   </td><td>   </td></tr>
+<tr><td>GetDigitSeparationCount<br/>
+        dc?                         </td><td>   </td><td>  </td></tr>
+<tr><td>SetDigitSeparationCount<br/>
+        dc=                         </td><td>   </td><td>  </td></tr>
+<tr><td>GetDigitSeparator      <br/>
+        ds?                         </td><td>   </td><td>  </td></tr>
+<tr><td>SetDigitSeparator      <br/>
+        ds=                         </td><td>   </td><td>  </td></tr>
+<tr><td>GetDigitLeader         <br/>
+        dl?                         </td><td>   </td><td>  </td></tr>
+<tr><td>SetDigitLeader         <br>
+        dl=                         </td><td>   </td><td>  </td></tr>
+<tr><td>GetRoundMode           <br>
+        rm?                         </td><td>   </td><td>  </td></tr>
+<tr><td>SetRoundMode           <br/>
+        rm=                         </td><td>   </td><td>  </td></tr>
+<tr><td>GetMaxIterationCount   <br/>
+        mi?                         </td><td>   </td><td>  </td></tr>
+<tr><td>SetMaxIterationCount   <br/>
+        mi=                         </td><td>   </td><td>  </td></tr>
+<tr><td>GetIterationCount      <br/>
+        ic?                         </td><td>   </td><td>  </td></tr>
+<tr><td>Alloc            <br/>
+        al                         </td><td>   </td><td>  </td></tr>
+<tr><td> =                         </td><td>   </td><td>  </td></tr>
+<tr><td>MemAlloc         <br/>
+        ma                         </td><td>   </td><td>  </td></tr>
+<tr><td>Clone                         </td><td>   </td><td>  </td></tr>
+<tr><td>MaxLength        <br/>
+        ml                         </td><td>   </td><td>  </td></tr>
+<tr><td>CurLength        <br/>
+        cl                         </td><td>   </td><td>  </td></tr>
+<tr><td>PrintE          <br/>
+        ?E                         </td><td>   </td><td>  </td></tr>
+<tr><td>PrintF          <br/>
+        ?F                         </td><td>   </td><td>  </td></tr>
+<tr><td>RevertSign      <br/>
+        Negate                         </td><td>   </td><td>  </td></tr>
+<tr><td>Abs                         </td><td>   </td><td>  </td></tr>
+<tr><td>Add             <br/>
+        +                         </td><td>   </td><td>  </td></tr>
+<tr><td>Sub             <br/>
+        -                         </td><td>   </td><td>  </td></tr>
+<tr><td>Mul             <br/>
+        *                         </td><td>   </td><td>  </td></tr>
+<tr><td>Div             <br/>
+        /                         </td><td>   </td><td>  </td></tr>
+<tr><td>Cmp                         </td><td>   </td><td>  </td></tr>
+<tr><td><-                         </td><td>   </td><td>  </td></tr>
+<tr><td>Asgn                   </td><td>   </td><td>  </td></tr>
+<tr><td>Asgn2                         </td><td>   </td><td>  </td></tr>
+<tr><td>ScaleRound      <br/>
+        sr                         </td><td>   </td><td>  </td></tr>
+<tr><td>LengthRound     <br/>
+        lr                         </td><td>   </td><td>  </td></tr>
+<tr><td>ScaleRound2                         </td><td>   </td><td>  </td></tr>
+<tr><td>LengthRound2                         </td><td>   </td><td>  </td></tr>
+<tr><td>Frac                         </td><td>   </td><td>  </td></tr>
+<tr><td>Fix                         </td><td>   </td><td>  </td></tr>
+<tr><td>Int                         </td><td>   </td><td>  </td></tr>
+<tr><td>Sqrt                         </td><td>   </td><td>  </td></tr>
+<tr><td>PI                         </td><td>   </td><td>  </td></tr>
+<tr><td>Exp                         </td><td>   </td><td>  </td></tr>
+<tr><td>Sin                         </td><td>   </td><td>  </td></tr>
+<tr><td>Cos                         </td><td>   </td><td>  </td></tr>
+<tr><td>Atan                         </td><td>   </td><td>  </td></tr>
+<tr><td>Log                         </td><td>   </td><td>  </td></tr>
+<tr><td>Power           <br/>
+        **                         </td><td>   </td><td>  </td></tr>
+<tr><td>GetTag                      </td><td>   </td><td>  </td></tr>
+<tr><td>SetTag                      </td><td>   </td><td>  </td></tr>
+<tr><td>IsNumeric                   </td><td>   </td><td>  </td></tr>
+<tr><td>SetSign                         </td><td>   </td><td>  </td></tr>
+<tr><td>GetSign                         </td><td>   </td><td>  </td></tr>
+<tr><td>IsOne                         </td><td>   </td><td>  </td></tr>
+<tr><td>SetOne                         </td><td>   </td><td>  </td></tr>
+<tr><td>IsPosZero                         </td><td>   </td><td>  </td></tr>
+<tr><td>SetPosZero                         </td><td>   </td><td>  </td></tr>
+<tr><td>IsNegZero                         </td><td>   </td><td>  </td></tr>
+<tr><td>SetNegZero                         </td><td>   </td><td>  </td></tr>
+<tr><td>IsZero                         </td><td>   </td><td>  </td></tr>
+<tr><td>SetZero                         </td><td>   </td><td>  </td></tr>
+<tr><td>IsNaN                         </td><td>   </td><td>  </td></tr>
+<tr><td>SetNaN                         </td><td>   </td><td>  </td></tr>
+<tr><td>IsPosInf                         </td><td>   </td><td>  </td></tr>
+<tr><td>SetPosInf                         </td><td>   </td><td>  </td></tr>
+<tr><td>IsInf                         </td><td>   </td><td>  </td></tr>
+<tr><td>SetInf                         </td><td>   </td><td>  </td></tr>
+<tr><td>IsNegInf                         </td><td>   </td><td>  </td></tr>
+<tr><td>SetNegInf                         </td><td>   </td><td>  </td></tr>
+<tr><td>EffectiveDigits                         </td><td>   </td><td>  </td></tr>
+<tr><td>Exponent                         </td><td>   </td><td>  </td></tr>
+<tr><td>StringLengthE                         </td><td>   </td><td>  </td></tr>
+<tr><td>StringLengthF                         </td><td>   </td><td>  </td></tr>
+<tr><td>ToStringE                         </td><td>   </td><td>  </td></tr>
+<tr><td>ToStringF                         </td><td>   </td><td>  </td></tr>
+</table>
+
 <hr/>
 <div align="right">
 Shigeo Kobayashi 2018-11-21
