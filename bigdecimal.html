@@ -287,27 +287,14 @@ To set or get the default rounding operation use:<p/>
 where f is the one of default rouding modes listed bellow.
 <table>
       <TBODY>
-      <TR>
-        <TD>VP_ROUND_UP</TD>
-        <TD>round away from zero.</TD></TR>
-      <TR>
-        <TD>VP_ROUND_DOWN</TD>
-        <TD>round towards zero(truncate).</TD></TR>
-      <TR>
-        <TD>VP_ROUND_HALF_UP</TD>
-        <TD>round up if the digit &gt;= 5 otherwise truncated(default).</TD></TR>
-      <TR>
-        <TD>VP_ROUND_HALF_DOWN</TD>
-        <TD>round up if the digit &gt;= 6 otherwise truncated.</TD></TR>
-      <TR>
-        <TD>VP_ROUND_HALF_EVEN</TD>
-        <TD>round towards the even neighbor(Banker's rounding). 
-      <TR>
-        <TD>VP_ROUND_CEILING</TD>
-        <TD>round towards positive infinity(ceil).</TD></TR>
-      <TR>
-        <TD>VP_ROUND_FLOOR</TD>
-        <TD>round towards negative infinity(floor).</TD></TR>
+<tr><th>Round mode</th><th>Meaning</th><th>Value</th></tr>
+      <TR><TD>VP_ROUND_UP</TD><TD>round away from zero.</TD><td>1</td></TR>
+      <TR><TD>VP_ROUND_DOWN</TD><TD>round towards zero(truncate).</TD><td>2</td></TR>
+      <TR><TD>VP_ROUND_HALF_UP</TD><TD>round up if the digit &gt;= 5 otherwise truncated(default).</TD><td>3</td></TR>
+      <TR><TD>VP_ROUND_HALF_DOWN</TD><TD>round up if the digit &gt;= 6 otherwise truncated.</TD><td>4</td></TR>
+      <TR><TD>VP_ROUND_CEILING</TD><TD>round towards positive infinity(ceil).</TD><td>5</td></TR>
+      <TR><TD>VP_ROUND_FLOOR</TD><TD>round towards negative infinity(floor).</TD><td>6</td></TR>
+      <TR><TD>VP_ROUND_HALF_EVEN</TD><TD>round towards the even neighbor(Banker's rounding). </td><td>7</td></tr>
 </TBODY>
 </table>
 
