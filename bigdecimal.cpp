@@ -1188,6 +1188,10 @@ VP_EXPORT(VP_HANDLE)
     Real *y = (Real*)hy;
     Real *x = (Real*)hx;
 
+    if(hy==hx) {
+        return VpException(VpSetNaN(hy),"Invalid argument for VpFrac(y==x)!");
+    }
+
     if(!VpIsNumeric(hx))                                    return VpException(VpSetNaN(hy),"Non-numeric specified to VpFrac()!");
     if(!VpHasVal((VP_HANDLE)x))                             return VpAsgn((VP_HANDLE)y,(VP_HANDLE)x,1);
     if (x->exponent > 0 && (VP_UINT)x->exponent >= x->Prec) return VpSetZero((VP_HANDLE)y,VP_SIGN(x));
@@ -2122,6 +2126,9 @@ VP_EXPORT(VP_HANDLE)
     if(VpIsZero((VP_HANDLE)a)) {
         return VpSetZero((VP_HANDLE)c,isw*VP_SIGN(a));
     }
+    if(C==A) {
+        return VpException(VpSetNaN(C),"Invalid argument for VpAsgn(y==x)!");
+    }
 
     c->exponent = a->exponent;    /* store  exponent */
     i = isw;
@@ -2878,8 +2885,8 @@ VP_EXPORT(VP_HANDLE)
     if(VpIsZero(x))              return VpSetZero(y,VP_SIGN(x));
     if (!VpHasVal((VP_HANDLE)x)) return VpException(VpSetNaN(y),"Invalid argument for VpAtan()");
 
-	if(VpCmp(x,(VP_HANDLE)VpConstNOne)<0)  VpException(VpSetNaN(y),"Invalid argument for VpAtan(x<-1)");
-	if(VpCmp(x,(VP_HANDLE)VpConstOne) >0)  VpException(VpSetNaN(y),"Invalid argument for VpAtan(x>1)");
+	if(VpCmp(x,(VP_HANDLE)VpConstNOne)<0) return VpException(VpSetNaN(y),"Invalid argument for VpAtan(x<-1)");
+	if(VpCmp(x,(VP_HANDLE)VpConstOne) >0) return VpException(VpSetNaN(y),"Invalid argument for VpAtan(x>1)");
 
     sig = (int)(((VpMaxLength(y)>VpMaxLength(x))?VpMaxLength(y):VpMaxLength(x))+BASE_FIG+1);
     x2 = VpAlloc("1",(VpCurLength(x)+1)*2);
@@ -2951,10 +2958,11 @@ VP_EXPORT(VP_HANDLE)
         return VpException(VpSetNaN(y),"Invalid argument for VpLog()!");
     }
 
-    if(VpGetSign(x)<0)           return VpException(VpSetNaN(y),"Invalid argument for VpLog( Negative )");
-    if(VpIsOne(x))               return VpSetZero(y,VP_SIGN(x));
-    if (!VpHasVal((VP_HANDLE)x)) return VpException(VpSetNaN(y),"Invalid argument for VpLog()");
-	if(VpCmp(x,(VP_HANDLE)VpConstTwo)>0)  VpException(VpSetNaN(y),"Invalid argument for VpLog(x>2)");
+    if(VpGetSign(x)<0)                   return VpException(VpSetNaN(y),"Invalid argument for VpLog( Negative )");
+	if(VpIsZero(x))                      return VpSetNegInf(y);
+	if(VpIsOne(x))                       return VpSetZero(y,VP_SIGN(x));
+    if (!VpHasVal((VP_HANDLE)x))         return VpException(VpSetNaN(y),"Invalid argument for VpLog()");
+	if(VpCmp(x,(VP_HANDLE)VpConstTwo)>0) return VpException(VpSetNaN(y),"Invalid argument for VpLog(x>2)");
 
     sig = (int)(((VpMaxLength(y)>VpMaxLength(x))?VpMaxLength(y):VpMaxLength(x))+BASE_FIG+1);
     c  = VpAlloc("1",2);
