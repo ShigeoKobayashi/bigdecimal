@@ -50,10 +50,16 @@ Copylight (c) 2018 Shigeo Kobayashi. All rights reserved.
 The Bigdecimal is a variable precision decimal arithmetic C/C++ library.<br/>
 Using Bigdecimal, you can obtain any number of significant digits in computation.<p/>
 This software has been tested on Windows-10(32-bit&amp;64-bit) and Linux(32-bit CentOS-5 &amp; 64-bit CentOS-7).<br/>
-<div align="right">
-<a href="http://www.tinyforest.jp/oss/bigdecimal.zip">Windows binary files(32-bit:Test.exe,bigdecimal.lib,bigdecimal.lib) can be downloaded here.</a>
-</div>
+To build this software,include "bigdecimal.h" in your prgram and
+<ul>
+ <li>Linux   ... see makefile.</li>
+ <li>Windows ... follow Visual studio instructions.</li>
+</ul>
 
+<div align="right">
+<a href="http://www.tinyforest.jp/oss/bigdecimal.zip">Windows binary files(32-bit:vpc.exe,bigdecimal.dll,bigdecimal.lib) can be downloaded here.</a>
+</div>
+Use <a href="#VPC">VPC(Variale Precision Cauculator bundled with Bigdecimal)</a> for your testing.
 <H2>Introduction</H2>
 To use Bigdecimal,"bigdecimal.h" should be included in your C/C++ source program.<br/>
 And,Bigdecimal variable must be declared before it is used.<br/>
@@ -477,112 +483,178 @@ typedef struct {
 VP_DIGIT can be 32-bit or 64-bit unsigned integer(see bigdecimal.h).<br/>
 On 64-bit machine with 64-bit OS,better performance can be obtained by setting VP_DIGIT as 'unsigned long long'(64-bit).<br/>
 On 32-bit OS,VP_DIGIT can also be set to be 64-bit(unsigned long long) which may cause bad performance due to 64-bit emulation.
-<h1>VPC(Variable Precision Calculator) for Bigdecimal API testing</h1>
+
+<a name="VPC"/>
+<h2>VPC(Variable Precision Calculator) for Bigdecimal API testing</h2>
+VPC(Variale Precision Cauculator bundled with Bigdecimal) is a simple calculator for testing Bigdecimal API.<br/>
+
+And each VPC command has one-to-one correspondence with Bigdecimal API(C/C++).<br/>
+The VPC is a one liner command driven calculator.<br/>
+Every line starts VPC command followed by argument(s),as same as Bigdecimal API.<br/>
+For instance,the VPC command  '<b>Div c r a b</b>' corresponds to '<b>VpDiv(c,r,a,b)</b>'.<br/>
+As is guessed from the above,VPC command's name is the same with Bigdecimal API name(without the first 2 letters 'Vp' and followed by same arguments with the exception of:<br/>
+<ul>
+<li> Alloc a 1234.1234 100 <b>&lt;=&gt;</b> a = VpAlloc("1234.1234",100)</li>
+<li> MemAlloc a 100 <b>&lt;=&gt;</b> a = VpMemAlloc(100)</li>
+<li> Clone a b <b>&lt;=&gt;</b> a = VpClone(b)</li>
+</ul>
+Unlike the Bigdecimal API(C/C++),space(s) is the only delimitter in VPC.<br/>
+And any letters having spaces in it must be quoted by single quotation letter '.<br/>
+The user can access to 26 predefined variables(from a to z).<br/>
+To print the value of variable(say a),just type 'a' and return or use PrintF or PrintE command(to print to stdout).<br/>
+Except for the variable name(a-z) which is always lower case,command names are case-insensitive.<br/>
+Predefined variables(a-z) have 100 digit in size(MaxLength) which can be reallocated by Alloc or other commands.<br/>
+To quit the VPC, just type 'quit' and return.<p/>
+<div align="center"><b>List of VPC commands(some commands have synonyms for typing convenience)</b></div>
 <table>
-<tr><th> Command </th>              </th><th> note </th><th> ------------ </th></tr>
-<tr><td>#?                          </td><td>   </td><td>   </td></tr>
-<tr><td>#=                          </td><td>   </td><td>   </td></tr>
+<tr><td>
+<table>
+<tr><th> Global             </th><th> Notes </th></tr>
+<tr><td>#?                          </td><td>output default allocation size(mx) used in '=' command.</td></tr>
+<tr><td>#=                          </td><td>set default allocation size(mx) used in '=' command.   </td></tr>
 <tr><td>GetDigitSeparationCount<br/>
-        dc?                         </td><td>   </td><td>  </td></tr>
+        dc?                         </td><td>   </td></tr>
 <tr><td>SetDigitSeparationCount<br/>
-        dc=                         </td><td>   </td><td>  </td></tr>
+        dc=                         </td><td>   </td></tr>
 <tr><td>GetDigitSeparator      <br/>
-        ds?                         </td><td>   </td><td>  </td></tr>
+        ds?                         </td><td>   </td></tr>
 <tr><td>SetDigitSeparator      <br/>
-        ds=                         </td><td>   </td><td>  </td></tr>
+        ds=                         </td><td>   </td></tr>
 <tr><td>GetDigitLeader         <br/>
-        dl?                         </td><td>   </td><td>  </td></tr>
+        dl?                         </td><td>   </td></tr>
 <tr><td>SetDigitLeader         <br>
-        dl=                         </td><td>   </td><td>  </td></tr>
+        dl=                         </td><td>   </td></tr>
 <tr><td>GetRoundMode           <br>
-        rm?                         </td><td>   </td><td>  </td></tr>
+        rm?                         </td><td>   </td></tr>
 <tr><td>SetRoundMode           <br/>
-        rm=                         </td><td>   </td><td>  </td></tr>
+        rm=                         </td><td>Round mode must be specified by it's integer value(see bigdecimal.h).    </td></tr>
 <tr><td>GetMaxIterationCount   <br/>
-        mi?                         </td><td>   </td><td>  </td></tr>
+        mi?                         </td><td>   </td></tr>
 <tr><td>SetMaxIterationCount   <br/>
-        mi=                         </td><td>   </td><td>  </td></tr>
+        mi=                         </td><td>   </td></tr>
 <tr><td>GetIterationCount      <br/>
-        ic?                         </td><td>   </td><td>  </td></tr>
-<tr><td>Alloc            <br/>
-        al                         </td><td>   </td><td>  </td></tr>
-<tr><td> =                         </td><td>   </td><td>  </td></tr>
-<tr><td>MemAlloc         <br/>
-        ma                         </td><td>   </td><td>  </td></tr>
-<tr><td>Clone                         </td><td>   </td><td>  </td></tr>
-<tr><td>MaxLength        <br/>
-        ml                         </td><td>   </td><td>  </td></tr>
-<tr><td>CurLength        <br/>
-        cl                         </td><td>   </td><td>  </td></tr>
-<tr><td>PrintE          <br/>
-        ?E                         </td><td>   </td><td>  </td></tr>
-<tr><td>PrintF          <br/>
-        ?F                         </td><td>   </td><td>  </td></tr>
-<tr><td>RevertSign      <br/>
-        Negate                         </td><td>   </td><td>  </td></tr>
-<tr><td>Abs                         </td><td>   </td><td>  </td></tr>
-<tr><td>Add             <br/>
-        +                         </td><td>   </td><td>  </td></tr>
-<tr><td>Sub             <br/>
-        -                         </td><td>   </td><td>  </td></tr>
-<tr><td>Mul             <br/>
-        *                         </td><td>   </td><td>  </td></tr>
-<tr><td>Div             <br/>
-        /                         </td><td>   </td><td>  </td></tr>
-<tr><td>Cmp                         </td><td>   </td><td>  </td></tr>
-<tr><td><-                         </td><td>   </td><td>  </td></tr>
-<tr><td>Asgn                   </td><td>   </td><td>  </td></tr>
-<tr><td>Asgn2                         </td><td>   </td><td>  </td></tr>
-<tr><td>ScaleRound      <br/>
-        sr                         </td><td>   </td><td>  </td></tr>
-<tr><td>LengthRound     <br/>
-        lr                         </td><td>   </td><td>  </td></tr>
-<tr><td>ScaleRound2                         </td><td>   </td><td>  </td></tr>
-<tr><td>LengthRound2                         </td><td>   </td><td>  </td></tr>
-<tr><td>Frac                         </td><td>   </td><td>  </td></tr>
-<tr><td>Fix                         </td><td>   </td><td>  </td></tr>
-<tr><td>Int                         </td><td>   </td><td>  </td></tr>
-<tr><td>Sqrt                         </td><td>   </td><td>  </td></tr>
-<tr><td>PI                         </td><td>   </td><td>  </td></tr>
-<tr><td>Exp                         </td><td>   </td><td>  </td></tr>
-<tr><td>Sin                         </td><td>   </td><td>  </td></tr>
-<tr><td>Cos                         </td><td>   </td><td>  </td></tr>
-<tr><td>Atan                         </td><td>   </td><td>  </td></tr>
-<tr><td>Log                         </td><td>   </td><td>  </td></tr>
-<tr><td>Power           <br/>
-        **                         </td><td>   </td><td>  </td></tr>
-<tr><td>GetTag                      </td><td>   </td><td>  </td></tr>
-<tr><td>SetTag                      </td><td>   </td><td>  </td></tr>
-<tr><td>IsNumeric                   </td><td>   </td><td>  </td></tr>
-<tr><td>SetSign                         </td><td>   </td><td>  </td></tr>
-<tr><td>GetSign                         </td><td>   </td><td>  </td></tr>
-<tr><td>IsOne                         </td><td>   </td><td>  </td></tr>
-<tr><td>SetOne                         </td><td>   </td><td>  </td></tr>
-<tr><td>IsPosZero                         </td><td>   </td><td>  </td></tr>
-<tr><td>SetPosZero                         </td><td>   </td><td>  </td></tr>
-<tr><td>IsNegZero                         </td><td>   </td><td>  </td></tr>
-<tr><td>SetNegZero                         </td><td>   </td><td>  </td></tr>
-<tr><td>IsZero                         </td><td>   </td><td>  </td></tr>
-<tr><td>SetZero                         </td><td>   </td><td>  </td></tr>
-<tr><td>IsNaN                         </td><td>   </td><td>  </td></tr>
-<tr><td>SetNaN                         </td><td>   </td><td>  </td></tr>
-<tr><td>IsPosInf                         </td><td>   </td><td>  </td></tr>
-<tr><td>SetPosInf                         </td><td>   </td><td>  </td></tr>
-<tr><td>IsInf                         </td><td>   </td><td>  </td></tr>
-<tr><td>SetInf                         </td><td>   </td><td>  </td></tr>
-<tr><td>IsNegInf                         </td><td>   </td><td>  </td></tr>
-<tr><td>SetNegInf                         </td><td>   </td><td>  </td></tr>
-<tr><td>EffectiveDigits                         </td><td>   </td><td>  </td></tr>
-<tr><td>Exponent                         </td><td>   </td><td>  </td></tr>
-<tr><td>StringLengthE                         </td><td>   </td><td>  </td></tr>
-<tr><td>StringLengthF                         </td><td>   </td><td>  </td></tr>
-<tr><td>ToStringE                         </td><td>   </td><td>  </td></tr>
-<tr><td>ToStringF                         </td><td>   </td><td>  </td></tr>
+        ic?                         </td><td>   </td></tr>
 </table>
 
+</td><td>
+<table>
+<tr><th> Allocation/Printing              </th><th> Notes </th></tr>
+<tr><td> =                         </td><td>= a '123' =&gt; a=VpAlloc("123",mx),mx is defined by '#=' command.</td></tr>
+<tr><td>Alloc            <br/>
+        al                         </td><td>Alloc a '1234 67' 10 =&gt; a=VpAlloc("1234 67",10)  </td></tr>
+<tr><td>MemAlloc         <br/>
+        ma                         </td><td>   </td></tr>
+<tr><td>Clone                         </td><td>   </td></tr>
+<tr><td>MaxLength        <br/>
+        ml                         </td><td>   </td></tr>
+<tr><td>CurLength        <br/>
+        cl                         </td><td>   </td></tr>
+<tr><td>EffectiveDigits                         </td><td>   </td></tr>
+<tr><td>Exponent                         </td><td>   </td></tr>
+<tr><td>PrintE          <br/>
+        ?E                         </td><td>   </td></tr>
+<tr><td>PrintF          <br/>
+        ?F                         </td><td>   </td></tr>
+<tr><td>ToStringE                         </td><td>String is allocated(and freed) internally,and printed to stdout(as PrintE command)   </td></tr>
+<tr><td>ToStringF                         </td><td> same as above  </td></tr>
+<tr><td>StringLengthE                         </td><td>   </td></tr>
+<tr><td>StringLengthF                         </td><td>   </td></tr>
+</table>
+
+</td><td>
+
+<table>
+<tr><th> Arithmetics             </th><th> Notes </th></tr>
+<tr><td>Abs                         </td><td>   </td></tr>
+<tr><td>Add             <br/>
+        +                         </td><td>   </td></tr>
+<tr><td>Sub             <br/>
+        -                         </td><td>   </td></tr>
+<tr><td>Mul             <br/>
+        *                         </td><td>   </td></tr>
+<tr><td>Div             <br/>
+        /                         </td><td>   </td></tr>
+<tr><td>Cmp                         </td><td>   </td></tr>
+<tr><td><-                         </td><td>&lt;- c a <br/>=&gt; VpAsgn(c,a,1)   </td></tr>
+<tr><td>Asgn                   </td><td>   </td></tr>
+<tr><td>Asgn2                         </td><td>   </td></tr>
+<tr><td>ScaleRound      <br/>
+        sr                         </td><td>   </td></tr>
+<tr><td>LengthRound     <br/>
+        lr                         </td><td>   </td></tr>
+<tr><td>ScaleRound2                         </td><td>   </td></tr>
+<tr><td>LengthRound2                         </td><td>   </td></tr>
+<tr><td>RevertSign      <br/>
+        Negate                         </td><td>   </td></tr>
+<tr><td>Frac                         </td><td>   </td></tr>
+<tr><td>Fix                         </td><td>   </td></tr>
+<tr><td>Int                         </td><td>   </td></tr>
+</table>
+* Round mode must be specified by it's integer value(see bigdecimal.h).
+</td><td>
+
+<table>
+<tr><th> Mathematics              </th><th> Notes </th></tr>
+<tr><td>Sqrt                         </td><td>   </td></tr>
+<tr><td>PI                         </td><td>   </td></tr>
+<tr><td>Exp                         </td><td>   </td></tr>
+<tr><td>Sin                         </td><td>   </td></tr>
+<tr><td>Cos                         </td><td>   </td></tr>
+<tr><td>Atan                         </td><td>   </td></tr>
+<tr><td>Log                         </td><td>   </td></tr>
+<tr><td>Power           <br/>
+        **                         </td><td>   </td></tr>
+</table>
+</td><td>
+
+<table>
+<tr><th> Miscellaneous              </th><th> Notes </th></tr>
+<tr><td>GetTag                      </td><td>   </td></tr>
+<tr><td>SetTag                      </td><td>   </td></tr>
+<tr><td>IsNumeric                   </td><td>   </td></tr>
+<tr><td>SetSign                         </td><td>   </td></tr>
+<tr><td>GetSign                         </td><td>   </td></tr>
+<tr><td>IsOne                         </td><td>   </td></tr>
+<tr><td>SetOne                         </td><td>   </td></tr>
+<tr><td>IsPosZero                         </td><td>   </td></tr>
+<tr><td>SetPosZero                         </td><td>   </td></tr>
+<tr><td>IsNegZero                         </td><td>   </td></tr>
+<tr><td>SetNegZero                         </td><td>   </td></tr>
+<tr><td>IsZero                         </td><td>   </td></tr>
+<tr><td>SetZero                         </td><td>   </td></tr>
+<tr><td>IsNaN                         </td><td>   </td></tr>
+<tr><td>SetNaN                         </td><td>   </td></tr>
+<tr><td>IsPosInf                         </td><td>   </td></tr>
+<tr><td>SetPosInf                         </td><td>   </td></tr>
+<tr><td>IsInf                         </td><td>   </td></tr>
+<tr><td>SetInf                         </td><td>   </td></tr>
+<tr><td>IsNegInf                         </td><td>   </td></tr>
+<tr><td>SetNegInf                         </td><td>   </td></tr>
+</table>
+</td></tr>
+</table>
+<h3>VPC example</h3>
+<pre class=console>
+C:\>vpc
+VPC(Variable Precision Calculator) of Bigdecimal(V1)
+  Copyright (c) 2018 by Shigeo Kobayashi. Allrights reserved.
+
+Enter command
+? = a 2
+  a= 0.2E1
+? sqrt b a
+  b= 0.1414213562 3730950488 0168872420 9698078569 6718753769 4807317667 9737990732 4784621070 3885038753 4327641572 7E1
+? ** c b 2
+  c= 0.1999999999 9999999999 9999999999 9999999999 9999999999 9999999999 9999999999 9999999999 9999999999 9999999999 9E1
+? * c b b
+  c= 0.1999999999 9999999999 9999999999 9999999999 9999999999 9999999999 9999999999 9999999999 9999999999 9999999999 9009658875 7879550649 3043993124 7001680915 0719937059 7525634347 1322374747 9711196309 9395818443 7613293852 9E1
+?quit
+C:\>
+</pre>
 <hr/>
+
 <div align="right">
-Shigeo Kobayashi 2018-11-21
+Shigeo Kobayashi 2018-11-30
 </div>
 <hr/>
 </body>
