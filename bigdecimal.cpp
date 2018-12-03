@@ -843,10 +843,11 @@ static void
 /*
  *
  *   c = a / b,  remainder = r
- *   Because 'r = a - c * b' must be satisfied,
- *   following conditions are mandatory,otherwise NaN returned.
+ *   Because 'r = a - c * b' must always be satisfied,
+ *   And considering the case like c = 1/3 that the computation continue
+ *   to c->MaxPrec.
+ *   Following condition is mandatory,otherwise NaN may returned.
  *      r->MaxPrec > max(a->Prec,c->MaxPrec+b->Prec) 
- *   If r has enough size,then computation continues to c->MaxPrec.
  *
  */
 VP_EXPORT(VP_HANDLE)

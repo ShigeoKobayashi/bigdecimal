@@ -48,7 +48,7 @@ Copylight (c) 2018 Shigeo Kobayashi. All rights reserved.
 </div>
 <hr/>
 The Bigdecimal is a variable precision decimal arithmetic C/C++ library.<br/>
-Using Bigdecimal, you can obtain any number of significant digits in computation.<p/>
+Using Bigdecimal, you can obtain any number of significant digits in your computation.<p/>
 This software has been tested on Windows-10(32-bit&amp;64-bit) and Linux(32-bit CentOS-5 &amp; 64-bit CentOS-7).<br/>
 To build this software,include "bigdecimal.h" in your prgram and
 <ul>
@@ -66,10 +66,10 @@ And,Bigdecimal variable must be declared before it is used.<br/>
 To declare Bigdecimal variable, use VP_HANDLE which is defined in the bigdecimal.h.<br/>
 Bigdecimal variable(VP_HANDLE) is simply a pointer to the structure Real(see bigdecimal.h) which is allocated somewhere and consists of an array of digits and other informations.<br/>
 On API interface explanation of this documentation,<u><b>a,b,c,and r are Bigdecimal</b> variables(VP_HANDLE)</u> and <u><b>i,f,m,n are integers</b></u>(signed or unsigned depending on the context) unless otherwise noted.
-
+<a name="ALLOC"/>
 <h3>Allocation &amp; Free</h3>
 Unlike double or float in C/C++,it is noted that Bigdecimal variable(VP_HANDLE) is a container of digits with certain size.<br/>
-Any Bigdecimal variable must be allocated by <b>VpAlloc()</b> or <b>VpMemAlloc()</b> before it is used,and freed(by <b>VpFree()</b>) if it is no more used as following example.
+Any Bigdecimal variable must be allocated by <b>VpAlloc()</b> or <b>VpMemAlloc()</b> before it is used,and freed(by <b>VpFree()</b>) when it is no more used as following example.
 <pre><code>
 #include &lt;stdio.h&gt;
 #include "bigdecimal.h"
@@ -83,29 +83,30 @@ int main(int argc, char* argv[])
 </code></pre>
 <table>
 <tr><th>Bigdecimal functions</th><th>meaning</th></tr>
-<tr><td> c = VpAlloc(st,m)</td><td>Allocates Bigdecimal variable and it's value is st.</td></tr>
-<tr><td> c = VpMemAlloc(m)</td><td>Allocates Bigdecimal variable(the value is 0).</td></tr>
+<tr><td> c = VpAlloc(st,m)</td><td>Allocates Bigdecimal variable and sets it's value to st.<br/>
+st is a character string representing any numerical value.<br/>
+m is the maximum number of digits c can hold.</td></tr>
+<tr><td> c = VpMemAlloc(m)</td><td>Allocates Bigdecimal variable(the value is 0).<br/>
+m is the maximum number of digits c can hold.</td></tr>
 <tr><td> c = VpClone(a)</td><td>Creates a copy of a.</td></tr>
 <tr><td> VpFree(&c)</td><td>Frees memories allocated to c.</td></tr>
 </table>
 The first argument(st) of VpAlloc() is the string representing numeric number(initial value:+1234567890...),and the second argument is the maximum number of digits the variable 'a' can store(m).<br/>
 
-The length of initial value has priority if the second argument value is too small.<br/>
+<b>The length of initial value has priority if the second argument's value is too small to represent it.</b><br/>
 Bigdecimal offers <b>VpClone(a)</b> to clone(to create a new copy of a) the specified Bigdecimal variable.<br/> 
 Bigdecimal also offers <b>VpAllocCount()</b> which is the number of Bigdecimal variables not yet freed.<p/>
 
-As the Bigdecimal variable is the container of the digits,Bigdecimal offers two functions:
+As the Bigdecimal variable is the container of digits,Bigdecimal offers two functions:
 <table>
 <tr><th>Bigdecimal functions</th><th>meaning</th></tr>
-<tr><td>m = VpMaxLength(c)</td><td>m is the maximum number of digits c can store.</td></tr>
-<tr><td>n = VpCurLength(c)</td><td>n is the number of digits currently c stored in c.</td></tr>
+<tr><td>m = VpMaxLength(c)</td><td>m is the maximum number of digits c can store.<br/>
+m is slightly bigger than the value specified by VpAlloc() or VpMemAlloc() due to internal logic.</td></tr>
+<tr><td>n = VpCurLength(c)</td><td>n is the number of digits currently stored in c.</td></tr>
 </table>
-VpMaxLength(c) and VpCurLength(c) return actual sizes that may be slightly bigger than the values spcecified due to internal logic.<br/>
+VpMaxLength(c) and VpCurLength(c) return the sizes that may be slightly bigger than the actual values in it due to internal logic.<br/>
 
 It is noted that <b>VpMaxLength(c) &gt;=VpCurLength(c) &gt; 0</b>.<p/>
-
-If the initial value is zero,then the initial value string can be omitted and <b>VpMemAlloc(m)</b> can be used instead of VpAlloc() where the argument m is the maximum number of digits as same as the second argument of VpAlloc().
-
 
 <h3>Computation</h3>
 Once allocated,Bigdecimal variables can be used in computation like the following program.
@@ -122,10 +123,15 @@ int main(int argc, char* argv[])
     return 0;
 }
 </code></pre>
-Bigdecimal offers functions for arithmetic operations(most function returns resulting 'c') for convenience of the programming.<br/>
+Bigdecimal offers functions for arithmetic operations(most function returns resulting 'c' for convenience of the programming).<br/>
 Only 3 functions(VpAlloc(),VpMemAlloc() and VpClone()) create new Bigdecimal variable(Other functions never do that).<br/>
 It should strongly be noted that,many function(except 3 functions above) return Bigdecimal variables but they are never new ones. </b><br/>
- For instance, <b>VpAdd(c,a,b)</b> computes a+b first,saves the result to c,and returns c itself.
+For instance, <b>VpAdd(c,a,b)</b> computes a+b first,saves the result to c,and returns c itself.<br/>
+It must be noted that <u>the total number of digits obtained by the computation depends on the capacity of the left hand side variable</u>.<br/>
+Computation like c = a op b(op is any arithmetic operator such as +,-,*,/..),
+the resulting digits are being saved to c while the computation is going on.<br/>
+<b>Storing the resulting digits to c stops when the computation finishes or the capacity of c(=VpMaxLength(c)) is exhausted.</b><br/>
+
 
 
 <table>
@@ -147,15 +153,15 @@ It should strongly be noted that,many function(except 3 functions above) return 
 <tr><td><b>c = VpSetSign(c,f)</b></td><td>sets c=|c|(if f&gt;0),c=-|c|(if f&lt;0)</td><td>f is an integer.</td></tr>
 </table>
 
-* <b><u>VpMul() or VpDiv() returns NaN</u>,when VpMaxLength(c) or VpMaxLength(r) does not satisfy above size limit.</b><br/>
+* <b><u>VpMul() or VpDiv() may return NaN</u>,if VpMaxLength(c) or VpMaxLength(r) does not satisfy above size limit.</b><br/>
 * VpDiv() returns Infinity,if the denominator b is zero.<br/>
 * VpDiv() returns NaN,if 0/0 is done.<p/>
 
 Bigdecimal also offers some mathematical functions(most functions return resulting 'c').
 <table>
 <tr><th>Bigdecimal functions</th><th>meaning</th><th>notes</th></tr>
-<tr><td><b>c = VpSqrt(c,a)</b></td><td> c = a<sup>1/2</sup></td><td>the final few digits of c may not be exact.</td></tr>
-<tr><td><b>c = VpPI(c)</b></td><td> c = 3.141592....</td></td><td>the final few digits of c may not be exact.</td></tr>
+<tr><td><b>c = VpSqrt(c,a)</b></td><td> c = a<sup>1/2</sup></td><td>computed by Newton's method.</td></tr>
+<tr><td><b>c = VpPI(c)</b></td><td> c = 3.141592....</td></td><td>computed by Matine's formula.</td></tr>
 <tr><td><b>c = VpSin(c,a)</b></td><td> c = sin(a)</td></td><td> see Note<sup>*</sup>  </td></tr>
 <tr><td><b>c = VpCos(c,a)</b></td><td> c = cos(a)</td></td><td>  see Note<sup>*</sup>  </td></tr>
 <tr><td><b>c = VpAtan(c,a)</b></td><td> c = tan<sup>-1</sup>(a)</td></td><td> |a|&lt;=1, see Note<sup>*</sup> </td></tr>
@@ -213,7 +219,7 @@ As series expansion is adopted for math functions,maximum iteration count can be
 <tr><td>m = VpSetMaxIterationCount(m)</td><td>sets maximum iteration count to m. </td></tr>
 <tr><td>n = VpGetIterationCount()</td><td>returns iteration count spent by the most recent computation.</td></tr>
 </table>
-
+<a name="PRINT"/>
 <h2>Display/Print</h2>
 The computation results must be converted into human readable form.<br/>
 <table>
@@ -273,8 +279,37 @@ This character applies for positive number.<br/>
   char  VpGetDigitLeader();                     /* default = ' ' */
   char  VpSetDigitLeader(char c);
 </b></pre>
+<p/>
+The results of these options can be easily confirmed by using <a href="#VPC"/>VPC</a>. 
 
+<pre class="console">
+VPC(Variable Precision Calculator) of Bigdecimal(V1)
+  Copyright (c) 2018 by Shigeo Kobayashi. Allrights reserved.
 
+Enter command
+? PI a
+  a= 0.3141592653 5897932384 6264338327 9502884197 1693993751 0582097494 4592307816 4062862089 9862803482 5342117063 2E1
+? dc?
+  10
+? dc= 5
+  5
+? a
+  a= 0.31415 92653 58979 32384 62643 38327 95028 84197 16939 93751 05820 97494 45923 07816 40628 62089 98628 03482 53421 17063 2E1
+? ds?
+  ' '
+? ds= ,
+  ','
+? a
+  a= 0.31415,92653,58979,32384,62643,38327,95028,84197,16939,93751,05820,97494,45923,07816,40628,62089,98628,03482,53421,17063,2E1
+? dl?
+  ' '
+? dl= +
+  '+'
+? a
+  a=+0.31415,92653,58979,32384,62643,38327,95028,84197,16939,93751,05820,97494,45923,07816,40628,62089,98628,03482,53421,17063,2E1
+?
+</pre>
+<a name="ROUND"/>
 <h2>Rounding operation</h2>
 Suppose C and A are Bigdecimal variables. The value assignment from A to C(C=A) is done by <b>VpAsgn(C,A,1)</b>.<br>If VpMaxLength(C) &lt; VpCurLength(A),then all digits of A can not be copied to C and the default rounding operation will be done. <br/>
 The default round operation is done in other cases such as addition or subtraction(internal rounding).<br/>
@@ -305,7 +340,7 @@ Both function return resulting c.
 <tr><td>c = VpScaleRound(c,i)</td><td>
 i is the position of round operation mesured from decimal point.<br/>
 If <b>i&gt;=0</b>,then the (i+1)th digit counted from the decimal point to right direction is processed(resulting number of digits after decimal point is less than or equal to i).<br/>
-If <b>i&lt;0</b>,then the i-th digit counted from the decimal point to left direction is processed(at least i 0's are placed from the decimal point to left).
+If <b>i&lt;0</b>,then the i-th digit counted from the decimal point to left direction is processed(at least i 0s are placed from the decimal point to left).
  </td></tr>
 <tr><td> c = VpLengthRound(c,i)</td><td>
 Round operation is done at the i-th position counted from the left side of the number.
@@ -417,7 +452,7 @@ Negative infinity(-Infinity) or Infinity respectively.<br/>
 And VpSetxxxx(c,[f]) set c to xxxx as same as above where f is a sign to set if there.
 <table>
 <tr><th>Bigdecimal functions</th><th>meaning</th></tr>
-<tr><td>f = VpIsOne(c)<br/>c = VpSetOne(c)</td><td> 1 if c==0<br/>c=1  </td></tr>
+<tr><td>f = VpIsOne(c)<br/>c = VpSetOne(c)</td><td> 1 if c==1<br/>c=1  </td></tr>
 <tr><td>f = VpIsPosZero(c)<br/>c = VpSetPosZero(c)</td><td>1 if c==+0<br/> c=+0  </td></tr>
 <tr><td>f = VpIsNegZero(c)<br/>c = VpSetNegZero(c)</td><td>1 if c==-0<br/> c=-0  </td></tr>
 <tr><td>f = VpIsZero(c)<br/>c = VpSetZero(c,f)</td><td> 1 if c==0<br/>c=0 (+0 if f&gt;0, -0 if f&lt;0))  </td></tr>
@@ -479,19 +514,20 @@ And each VPC command has one-to-one correspondence with Bigdecimal API(C/C++).<b
 The VPC is a one liner command driven calculator.<br/>
 Every line starts VPC command followed by argument(s),as same as Bigdecimal API.<br/>
 For instance,the VPC command  '<b>Div c r a b</b>' corresponds to '<b>VpDiv(c,r,a,b)</b>'.<br/>
-As is guessed from the above,VPC command's name is the same with Bigdecimal API name(without the first 2 letters 'Vp' and followed by same arguments with the exception of:<br/>
+As is guessed from the above,VPC command's name is the same with Bigdecimal API name(without the first 2 letters 'Vp') and followed by same arguments with the exception of:<br/>
 <ul>
 <li> Alloc a 1234.1234 100 <b>&lt;=&gt;</b> a = VpAlloc("1234.1234",100)</li>
 <li> MemAlloc a 100 <b>&lt;=&gt;</b> a = VpMemAlloc(100)</li>
 <li> Clone a b <b>&lt;=&gt;</b> a = VpClone(b)</li>
 </ul>
-Unlike the Bigdecimal API(C/C++),space(s) is the only delimitter in VPC.<br/>
+Unlike the Bigdecimal API(C/C++),<b>space(s) is the only delimitter in VPC</b>.<br/>
 And any letters having spaces in it must be quoted by single quotation letter '.<br/>
 The user can access to 26 predefined variables(from a to z).<br/>
 To print the value of variable(say a),just type 'a' and return or use PrintF or PrintE command(to print to stdout).<br/>
 Except for the variable name(a-z) which is always lower case,command names are case-insensitive.<br/>
-Predefined variables(a-z) have 100 digit in size(MaxLength) which can be reallocated by Alloc or other commands.<br/>
+Predefined variables(a-z) have 100 digits in size(MaxLength) which can be reallocated by Alloc or other commands.<br/>
 To quit the VPC, just type 'quit' and return.<p/>
+<hr/>
 <div align="center"><b>List of VPC commands(some commands have synonyms for typing convenience)</b></div>
 <table>
 <tr><td>
@@ -500,21 +536,21 @@ To quit the VPC, just type 'quit' and return.<p/>
 <tr><td>#?                          </td><td>output default allocation size(mx) used in '=' command.</td></tr>
 <tr><td>#=                          </td><td>set default allocation size(mx) used in '=' command.   </td></tr>
 <tr><td>GetDigitSeparationCount<br/>
-        dc?                         </td><td>   </td></tr>
+        dc?                         </td><td><a href="#PRINT"/>see<sup>*</sup></a></td></tr>
 <tr><td>SetDigitSeparationCount<br/>
-        dc=                         </td><td>   </td></tr>
+        dc=                         </td><td><a href="#PRINT"/>see<sup>*</sup></a></td></tr>
 <tr><td>GetDigitSeparator      <br/>
-        ds?                         </td><td>   </td></tr>
+        ds?                         </td><td><a href="#PRINT"/>see<sup>*</sup></a></td></tr>
 <tr><td>SetDigitSeparator      <br/>
-        ds=                         </td><td>   </td></tr>
+        ds=                         </td><td><a href="#PRINT"/>see<sup>*</sup></a></td></tr>
 <tr><td>GetDigitLeader         <br/>
-        dl?                         </td><td>   </td></tr>
+        dl?                         </td><td><a href="#PRINT"/>see<sup>*</sup></a></td></tr>
 <tr><td>SetDigitLeader         <br>
-        dl=                         </td><td>   </td></tr>
+        dl=                         </td><td><a href="#PRINT"/>see<sup>*</sup></a></td></tr>
 <tr><td>GetRoundMode           <br>
-        rm?                         </td><td>   </td></tr>
+        rm?                         </td><td><a href="#ROUND"/>see<sup>*</sup></a></td></tr>
 <tr><td>SetRoundMode           <br/>
-        rm=                         </td><td>Round mode must be specified by it's integer value(see bigdecimal.h).    </td></tr>
+        rm=                         </td><td>Round mode must be specified by it's integer value(see <a href="#ROUND">Round operation</a>).    </td></tr>
 <tr><td>GetMaxIterationCount   <br/>
         mi?                         </td><td>   </td></tr>
 <tr><td>SetMaxIterationCount   <br/>
@@ -526,22 +562,22 @@ To quit the VPC, just type 'quit' and return.<p/>
 </td><td>
 <table>
 <tr><th> Allocation/Printing              </th><th> Notes </th></tr>
-<tr><td> =                         </td><td>= a '123' =&gt; a=VpAlloc("123",mx),mx is defined by '#=' command.</td></tr>
+<tr><td> =                         </td><td>= a '123' <br/> a=VpAlloc("123",mx)<br/>mx is defined by '#=' command.</td></tr>
 <tr><td>Alloc            <br/>
-        al                         </td><td>Alloc a '1234 67' 10 =&gt; a=VpAlloc("1234 67",10)  </td></tr>
+        al                         </td><td>Alloc a '1234 67' 10 <br/> a=VpAlloc("1234 67",10)<br/><a href="#ALLOC">see<sup>*</sup></a>  </td></tr>
 <tr><td>MemAlloc         <br/>
-        ma                         </td><td>   </td></tr>
-<tr><td>Clone                         </td><td>   </td></tr>
+        ma                         </td><td><a href="#ALLOC">see<sup>*</sup></a>   </td></tr>
+<tr><td>Clone                         </td><td><a href="#ALLOC">see<sup>*</sup></a>   </td></tr>
 <tr><td>MaxLength        <br/>
-        ml                         </td><td>   </td></tr>
+        ml                         </td><td><a href="#ALLOC">see<sup>*</sup></a> </td></tr>
 <tr><td>CurLength        <br/>
-        cl                         </td><td>   </td></tr>
+        cl                         </td><td><a href="#ALLOC">see<sup>*</sup></a></td></tr>
 <tr><td>EffectiveDigits                         </td><td>   </td></tr>
 <tr><td>Exponent                         </td><td>   </td></tr>
 <tr><td>PrintE          <br/>
-        ?E                         </td><td>   </td></tr>
+        ?E                         </td><td><a href="#PRINT">see<sup>*</sup></a>   </td></tr>
 <tr><td>PrintF          <br/>
-        ?F                         </td><td>   </td></tr>
+        ?F                         </td><td><a href="#PRINT">see<sup>*</sup></a> </td></tr>
 <tr><td>ToStringE                         </td><td>String is allocated(and freed) internally,and printed to stdout(as PrintE command)   </td></tr>
 <tr><td>ToStringF                         </td><td> same as above  </td></tr>
 <tr><td>StringLengthE                         </td><td>   </td></tr>
@@ -551,46 +587,46 @@ To quit the VPC, just type 'quit' and return.<p/>
 </td><td>
 
 <table>
-<tr><th> Arithmetics             </th><th> Notes </th></tr>
-<tr><td>Abs                         </td><td>   </td></tr>
+<tr><th> Arithmetics             </th><th> Notes/Examole </th></tr>
+<tr><td>Abs                         </td><td>abs c<br/>c = |c|   </td></tr>
 <tr><td>Add             <br/>
-        +                         </td><td>   </td></tr>
+        +                         </td><td>+ c a b </td></tr>
 <tr><td>Sub             <br/>
-        -                         </td><td>   </td></tr>
+        -                         </td><td>- c a b </td></tr>
 <tr><td>Mul             <br/>
-        *                         </td><td>   </td></tr>
+        *                         </td><td>* c a b </td></tr>
 <tr><td>Div             <br/>
-        /                         </td><td>   </td></tr>
-<tr><td>Cmp                         </td><td>   </td></tr>
+        /                         </td><td>/ c r a b </td></tr>
+<tr><td>Cmp                         </td><td>cmp a b   </td></tr>
 <tr><td><-                         </td><td>&lt;- c a <br/>=&gt; VpAsgn(c,a,1)   </td></tr>
-<tr><td>Asgn                   </td><td>   </td></tr>
+<tr><td>Asgn                   </td><td>asgn c a -1<br/>c = -a   </td></tr>
 <tr><td>Asgn2                         </td><td>   </td></tr>
 <tr><td>ScaleRound      <br/>
-        sr                         </td><td>   </td></tr>
+        sr                         </td><td><a href="#ROUND"/>see<sup>*</sup></a>   </td></tr>
 <tr><td>LengthRound     <br/>
-        lr                         </td><td>   </td></tr>
-<tr><td>ScaleRound2                         </td><td>   </td></tr>
-<tr><td>LengthRound2                         </td><td>   </td></tr>
+        lr                         </td><td><a href="#ROUND"/>see<sup>*</sup></a>   </td></tr>
+<tr><td>ScaleRound2                         </td><td> <a href="#ROUND"/>see<sup>*</sup></a>  </td></tr>
+<tr><td>LengthRound2                         </td><td><a href="#ROUND"/>see<sup>*</sup></a>   </td></tr>
 <tr><td>RevertSign      <br/>
-        Negate                         </td><td>   </td></tr>
-<tr><td>Frac                         </td><td>   </td></tr>
-<tr><td>Fix                         </td><td>   </td></tr>
-<tr><td>Int                         </td><td>   </td></tr>
+        Negate                         </td><td>Negate c<br/> c = -c   </td></tr>
+<tr><td>Frac                         </td><td>frac c a   </td></tr>
+<tr><td>Fix                         </td><td>fix c a   </td></tr>
+<tr><td>Int                         </td><td>int c a   </td></tr>
 </table>
 * Round mode must be specified by it's integer value(see bigdecimal.h).
 </td><td>
 
 <table>
-<tr><th> Mathematics              </th><th> Notes </th></tr>
-<tr><td>Sqrt                         </td><td>   </td></tr>
-<tr><td>PI                         </td><td>   </td></tr>
-<tr><td>Exp                         </td><td>   </td></tr>
-<tr><td>Sin                         </td><td>   </td></tr>
-<tr><td>Cos                         </td><td>   </td></tr>
-<tr><td>Atan                         </td><td>   </td></tr>
-<tr><td>Log                         </td><td>   </td></tr>
+<tr><th> Mathematics              </th><th> Notes/Example </th></tr>
+<tr><td>Sqrt                         </td><td>sqrt c a   </td></tr>
+<tr><td>PI                         </td><td>pi c   </td></tr>
+<tr><td>Exp                         </td><td>exp c a   </td></tr>
+<tr><td>Sin                         </td><td>sin c a   </td></tr>
+<tr><td>Cos                         </td><td>cos c a   </td></tr>
+<tr><td>Atan                         </td><td>atan c a   </td></tr>
+<tr><td>Log                         </td><td>log c a</tr>
 <tr><td>Power           <br/>
-        **                         </td><td>   </td></tr>
+        **                         </td><td>** c a 3<br/>c = a<sup>3</sup>   </td>   </td></tr>
 </table>
 </td><td>
 
