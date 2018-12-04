@@ -517,36 +517,36 @@ static VP_TOKEN gTokens[] =
 	{"RevertSign",RevertSign,'v',1,'v',0,0,0,0},
 	{"Negate",RevertSign,'v',1,'v',0,0,0,0},
 	{"Abs",Abs,'v',1,'v',0,0,0,0},
-	{"Add",Add,'v',3,'v','v','v',0,0},
-	{"+",Add,'v',3,'v','v','v',0,0},
-	{"Sub",Sub,'v',3,'v','v','v',0,0},
-	{"-",Sub,'v',3,'v','v','v',0,0},
-	{"Mul",Mul,'v',3,'v','v','v',0,0},
-	{"*",Mul,'v',3,'v','v','v',0,0},
-	{"Div",Div,'v',4,'v','v','v','v',0},
-	{"/",Div,'v',4,'v','v','v','v',0},
+	{"Add",Add,'v',3,'V','v','v',0,0},
+	{"+",Add,'v',3,'V','v','v',0,0},
+	{"Sub",Sub,'v',3,'V','v','v',0,0},
+	{"-",Sub,'v',3,'V','v','v',0,0},
+	{"Mul",Mul,'v',3,'V','v','v',0,0},
+	{"*",Mul,'v',3,'V','v','v',0,0},
+	{"Div",Div,'v',4,'V','V','v','v',0},
+	{"/",Div,'v',4,'V','V','v','v',0},
 	{"Cmp",Cmp,'i',2,'v','v',0,0,0},
-	{"Asgn",Asgn,'v',3,'v','v','i',0,0},
-	{"<-",Asgn0,'v',2,'v','v',0,0,0},
-	{"Asgn2",Asgn2,'v',4,'v','v','i','i',0},
+	{"Asgn",Asgn,'v',3,'V','v','i',0,0},
+	{"<-",Asgn0,'v',2,'V','v',0,0,0},
+	{"Asgn2",Asgn2,'v',4,'V','v','i','i',0},
 	{"ScaleRound",ScaleRound,'v',2,'v','i',0,0,0},
 	{"sr",ScaleRound,'v',2,'v','i',0,0,0},
 	{"LengthRound",LengthRound,'v',2,'v','i',0,0,0},
 	{"lr",LengthRound,'v',2,'v','i',0,0,0},
 	{"ScaleRound2",ScaleRound2,'v',3,'v','i','i',0,0},
 	{"LengthRound2",LengthRound2,'v',3,'v','i','i',0,0},
-	{"Frac",Frac,'v',2,'v','v',0,0,0},
-	{"Fix",Fix,'v',2,'v','v',0,0,0},
-	{"Int",Fix,'v',2,'v','v',0,0,0},
-	{"Sqrt",Sqrt,'v',2,'v','v',0,0,0},
-	{"PI",PI,'v',1,'v',0,0,0,0},
-	{"Exp",Exp,'v',2,'v','v',0,0,0},
-	{"Sin",Sin,'v',2,'v','v',0,0,0},
-	{"Cos",Cos,'v',2,'v','v',0,0,0},
-	{"Atan",Atan,'v',2,'v','v',0,0,0},
-	{"Log",Log,'v',2,'v','v',0,0,0},
-	{"Power",Power,'v',3,'v','v','i',0,0},
-	{"**",Power,'v',3,'v','v','i',0,0}
+	{"Frac",Frac,'v',2,'V','v',0,0,0},
+	{"Fix",Fix,'v',2,'V','v',0,0,0},
+	{"Int",Fix,'v',2,'V','v',0,0,0},
+	{"Sqrt",Sqrt,'v',2,'V','v',0,0,0},
+	{"PI",PI,'v',1,'V',0,0,0,0},
+	{"Exp",Exp,'v',2,'V','v',0,0,0},
+	{"Sin",Sin,'v',2,'V','v',0,0,0},
+	{"Cos",Cos,'v',2,'V','v',0,0,0},
+	{"Atan",Atan,'v',2,'V','v',0,0,0},
+	{"Log",Log,'v',2,'V','v',0,0,0},
+	{"Power",Power,'v',3,'V','v','i',0,0},
+	{"**",Power,'v',3,'V','v','i',0,0}
 };
 static int gnMaxTokens = sizeof(gTokens)/sizeof(gTokens[0]);
 
@@ -631,8 +631,12 @@ static void VpCall(VP_TOKEN *pToken)
 	int       iarg = 0;
 	VP_ARG    args[MAX_TOKEN];
 	int       ixv = 0;
+	int       nw = 0; /* Number of work variables */
+	VP_HANDLE W[2];
 	VP_RETURN ret;
 
+	W[0] = 0;
+	W[1] = 0;
 	for(i=1;i<gnToken;++i)
 	{
 		switch(pToken->chArgs[i-1])
@@ -642,7 +646,7 @@ static void VpCall(VP_TOKEN *pToken)
 		case 'u': /* unsigned int */
 		case 'f': /* bool */
 		case 'r': /* round mode */
-			if(EOF == sscanf(gpszToken[i], "%d", &v) ) {
+			if(0 >= sscanf(gpszToken[i], "%d", &v) ) {
 				fprintf(stderr,"Invalid argument(%s)!\n",gpszToken[i]);
 				return;
 			}
@@ -662,7 +666,18 @@ static void VpCall(VP_TOKEN *pToken)
 		case 's': /* string */
 			args[iarg++] = (VP_ARG)(gpszToken[i]);
 			break;
-		case 'v': /* VP_HANDLE('a'-'z') */
+		case 'v': /* VP_HANDLE('a'-'z') or numeric string */
+			iv = (int)(gpszToken[i][0])-(int)'a';
+			if(iv<0||iv>=(sizeof(gVpVars)/sizeof(gVpVars[0]))) {
+				VP_HANDLE v = VpAlloc(gpszToken[i],1);
+				if(VpIsValid(v)) {
+					args[iarg++]  = v;
+					W[nw++]       = v;
+					gixVars[ixv++] = iv;
+					break;
+				}
+			}
+		case 'V': /* VP_HANDLE only */
 			if(strlen(gpszToken[i])!=1) {
 				fprintf(stderr,"Invalid argument(%s)!\n",gpszToken[i]);
 				return;
@@ -679,14 +694,11 @@ static void VpCall(VP_TOKEN *pToken)
 			fprintf(stderr,"System error: Undefined argument!!\n");
 		}
 	}
+	
+	/* Call vp rourine */
 	ret = (*pToken->vpf)(args); /* call */
+	while(nw>0) VpFree(&W[--nw]);
 	if(FLAG64_NOMSG == ret) return; /* Message already output and no need to print any more */
-	/*
-	for(i=0;i<gnToken;++i) {
-		printf(" %s",gpszToken[i]);
-	}
-	printf(" ");
-	*/
 
 	switch(pToken->chRet)
 	{

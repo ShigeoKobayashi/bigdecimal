@@ -525,7 +525,15 @@ And any letters having spaces in it must be quoted by single quotation letter '.
 The user can access to 26 predefined variables(from a to z).<br/>
 To print the value of variable(say a),just type 'a' and return or use PrintF or PrintE command(to print to stdout).<br/>
 Except for the variable name(a-z) which is always lower case,command names are case-insensitive.<br/>
-Predefined variables(a-z) have 100 digits in size(MaxLength) which can be reallocated by Alloc or other commands.<br/>
+Predefined variables(a-z) have 100 digits in size(default MaxLength) which can be changed by Alloc or other commands.<br/>
+Numerical string can be placed instead of Bigdecimal variable where the value is not assigned.<br/>
+<pre class="console">
+Enter command
+? sqrt c 2.0
+  c= 0.1414213562 3730950488 0168872420 9698078569 6718753769 4807317667 9737990732 4784621070 3885038753 4327641572 7E1
+?
+</pre>
+<p/>
 To quit the VPC, just type 'quit' and return.<p/>
 <hr/>
 <div align="center"><b>List of VPC commands(some commands have synonyms for typing convenience)</b></div>
@@ -594,9 +602,11 @@ To quit the VPC, just type 'quit' and return.<p/>
 <tr><td>Sub             <br/>
         -                         </td><td>- c a b </td></tr>
 <tr><td>Mul             <br/>
-        *                         </td><td>* c a b </td></tr>
+        *                         </td><td>* c a b<br/>c = a * b <br/>the size of c is extended to be VpMaxLength(c)&gt;VpCurLength(a)+VpCurLength(b). </td></tr>
 <tr><td>Div             <br/>
-        /                         </td><td>/ c r a b </td></tr>
+        /                         </td><td>/ c r a b <br/> c = a/b,r:remainder<br/>
+the size of r is extended to be VpMaxLength(r)&gt;Max(VpCurLength(a),VpMaxLength(c)+VpCurLength(b)).
+</td></tr>
 <tr><td>Cmp                         </td><td>cmp a b   </td></tr>
 <tr><td><-                         </td><td>&lt;- c a <br/>=&gt; VpAsgn(c,a,1)   </td></tr>
 <tr><td>Asgn                   </td><td>asgn c a -1<br/>c = -a   </td></tr>
