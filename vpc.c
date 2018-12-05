@@ -25,6 +25,7 @@ static int DEF_SIZE = 100; /* default size for Bigdecimal variable 'a'-'z' */
 #define MAX_TOKEN   6
 
 static VP_HANDLE gVpVars[26]; /* 'a' - 'z' */
+static int       gnVpVars = sizeof(gVpVars)/sizeof(gVpVars[0]);
 static int       gixVars[MAX_TOKEN];
 
 static char  gszBuf[MAX_BUFF]; /* read buffer */
@@ -43,7 +44,20 @@ static VP_RETURN GetDefSize(VP_ARGS args) {
 }
 static VP_RETURN SetDefSize(VP_ARGS args) {
 	int n = (int)args[0];
-	if(n>0) DEF_SIZE = n;
+	int i;
+	VP_HANDLE v;
+	if(n>0) {
+		DEF_SIZE = n;
+		/* reallocate variables */
+		for(i=0;i<gnVpVars;++i) {
+			if(VpMaxLength(gVpVars[i])>=(unsigned int)n) continue;
+			v = VpMemAlloc(n);
+			if(VpIsInvalid(v)) break;
+			VpAsgn(v,gVpVars[i],1);
+			VpFree(&gVpVars[i]);
+			gVpVars[i] = v;
+		}
+	}
 	return (VP_RETURN)DEF_SIZE;
 }
 static VP_RETURN GetDigitSeparationCount(VP_ARGS args){
@@ -65,6 +79,17 @@ static VP_RETURN SetDigitLeader(VP_ARGS args)
 {
 	return (VP_RETURN)VpSetDigitLeader((char)args[0]);
 }
+static void PrintMode(FILE *f)
+{
+	fprintf(f,"   1:VP_ROUND_UP\n");
+	fprintf(f,"   2:VP_ROUND_DOWN\n");
+	fprintf(f,"   3:VP_ROUND_HALF_UP\n");
+	fprintf(f,"   4:VP_ROUND_HALF_DOWN\n");
+	fprintf(f,"   5:VP_ROUND_CEIL\n");
+	fprintf(f,"   6:VP_ROUND_FLOOR\n");
+	fprintf(f,"   7:VP_ROUND_HALF_EVEN\n");
+}
+
 static VP_RETURN GetRoundMode(VP_ARGS args) {
 	switch (VpGetRoundMode())
 	{
@@ -76,18 +101,11 @@ static VP_RETURN GetRoundMode(VP_ARGS args) {
 	case 6:printf("  VP_ROUND_FLOOR(6)\n");break;
 	case 7:printf("  VP_ROUND_HALF_EVEN(7)\n");break;
 	}
+	printf("\n  List of round modes(1-7)\n");
+	PrintMode(stdout);
 	return (VP_RETURN)FLAG64_NOMSG;
 }
-static void PrintMode(FILE *f)
-{
-	fprintf(f,"   1:VP_ROUND_UP\n");
-	fprintf(f,"   2:VP_ROUND_DOWN\n");
-	fprintf(f,"   3:VP_ROUND_HALF_UP\n");
-	fprintf(f,"   4:VP_ROUND_HALF_DOWN\n");
-	fprintf(f,"   5:VP_ROUND_CEIL\n");
-	fprintf(f,"   6:VP_ROUND_FLOOR\n");
-	fprintf(f,"   7:VP_ROUND_HALF_EVEN\n");
-}
+
 static VP_RETURN SetRoundMode(VP_ARGS args) {
 	int i = (int)args[0];
 	if(i<1 || i>7) {
@@ -433,8 +451,8 @@ typedef struct _VP_TOKEN {
 							   'f':bool,
 							   'r':round mode,
 							   'S':VP-sign,
-							   'v':VP_HANDLE
-							   'V':void (only for return type.
+							   'v':VP_HANDLE(numeric literal allowed,RHSV)
+							   'V':VP_HANDLE.
 				 		    */
 } VP_TOKEN;
 static VP_TOKEN gTokens[] =
@@ -668,7 +686,7 @@ static void VpCall(VP_TOKEN *pToken)
 			break;
 		case 'v': /* VP_HANDLE('a'-'z') or numeric string */
 			iv = (int)(gpszToken[i][0])-(int)'a';
-			if(iv<0||iv>=(sizeof(gVpVars)/sizeof(gVpVars[0]))) {
+			if(iv<0||iv>=gnVpVars) {
 				VP_HANDLE v = VpAlloc(gpszToken[i],1);
 				if(VpIsValid(v)) {
 					args[iarg++]  = v;
