@@ -1542,39 +1542,13 @@ VP_EXPORT(VP_UINT)
     return ex;
 }
 
-
-/*
- * Allocates variable.
- * [Input]
- *   szVal ... value(string) assigned. 
- *             If szVal==NULL(or "\0"),then zero is assumed.
- *   mx    ... allocation unit, if it is not enough to hold szVal,then mx is
- *             determined by szVal.
- *             The mx is the number of effective digits can be stored.
- *
- * [Returns]
- *   Pointer to the newly allocated variable, or
- *   ERROR code is returned if memory allocation is failed,or any error. 
- */
-VP_EXPORT(VP_HANDLE)
-    VpAlloc(const char *szVal,VP_UINT mx)
+static VP_HANDLE
+    VpLoadAlloc(const char *szVal,Real *vp,VP_UINT mx)
 {
     VP_UINT i, ni, ipf, nf, ipe, ne;
     char v;
     int  sign  = 1; /* sign of the value */
     int  signe = 1; /* sign of exponent part */
-
-    Real *vp = NULL;
-
-    if((!szVal) || !(*szVal)) {
-       /* necessary to be able to store */
-       /* at least mx digits. */
-       /* szVal==NULL ==> allocate zero value. */
-       vp = (Real*)VpMemAlloc(mx);
-       if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
-       VpSetZero((VP_HANDLE)vp,1);    /* initialize vp to zero. */
-       return (VP_HANDLE)vp;
-    }
 
     /* skip leading spaces */
     while(isspace(*szVal)) szVal++;
@@ -1582,19 +1556,19 @@ VP_EXPORT(VP_HANDLE)
     /* Check on Inf & NaN */
     if (StrCmp(szVal, SZ_PINF) == 0 ||
         StrCmp(szVal, SZ_INF)  == 0 ) {
-        vp = (Real*)VpMemAlloc(1);
+        if(!vp) vp = (Real*)VpMemAlloc(1);
         if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
         VpSetPosInf((VP_HANDLE)vp);
         return (VP_HANDLE)vp;
     }
     if (StrCmp(szVal, SZ_NINF) == 0) {
-        vp = (Real*)VpMemAlloc(1);
+        if(!vp) vp = (Real*)VpMemAlloc(1);
         if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
         VpSetNegInf((VP_HANDLE)vp);
         return (VP_HANDLE)vp;
     }
     if (StrCmp(szVal, SZ_NaN) == 0) {
-        vp = (Real*)VpMemAlloc(1);
+        if(!vp) vp = (Real*)VpMemAlloc(1);
         if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
         VpSetNaN((VP_HANDLE)vp);
         return (VP_HANDLE)vp;
@@ -1641,21 +1615,70 @@ VP_EXPORT(VP_HANDLE)
             else if (v == '+')  ++i;
             ipe = i;
             while ((v=szVal[i]) != 0) {
-                if (!isdigit(v)) return VpException((VP_HANDLE)VP_ERROR_BAD_STRING,"Bad numeric string for VpAlloc()");
+                if (!isdigit(v)) return VpException((VP_HANDLE)VP_ERROR_BAD_STRING,"Bad numeric string.");
                 ++i;
                 ++ne;
             }
             break;
         default:
-            return VpException((VP_HANDLE)VP_ERROR_BAD_STRING,"Bad numeric string for VpAlloc()");
+            return VpException((VP_HANDLE)VP_ERROR_BAD_STRING,"Bad numeric string.");
             break;
         }
     }
-
-    mx = Max(ni + nf + 1, mx);
-    vp = (Real*)VpMemAlloc(mx);
+	if(vp) {
+		mx = vp->MaxPrec;
+		if(mx<ni + nf + 1) {
+            return VpException((VP_HANDLE)VP_ERROR_BAD_HANDLE,"Maximum length too short to load value.");
+		}
+	} else {
+		mx = Max(ni + nf + 1, mx);
+		vp = (Real*)VpMemAlloc(mx);
+	}
     if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
     return VpCtoV(vp, sign, szVal, ni, &szVal[ipf], nf, signe, &szVal[ipe], ne);
+}
+
+
+/*
+ * Allocates variable.
+ * [Input]
+ *   szVal ... value(string) assigned. 
+ *             If szVal==NULL(or "\0"),then zero is assumed.
+ *   mx    ... allocation unit, if it is not enough to hold szVal,then mx is
+ *             determined by szVal.
+ *             The mx is the number of effective digits can be stored.
+ *
+ * [Returns]
+ *   Pointer to the newly allocated variable, or
+ *   ERROR code is returned if memory allocation is failed,or any error. 
+ */
+VP_EXPORT(VP_HANDLE)
+    VpAlloc(const char *szVal,VP_UINT mx)
+{
+    if((!szVal) || !(*szVal)) {
+       /* necessary to be able to store */
+       /* at least mx digits. */
+       /* szVal==NULL ==> allocate zero value. */
+       Real *vp = (Real*)VpMemAlloc(mx);
+       if(VpIsInvalid(vp)) return (VP_HANDLE)vp;
+       VpSetZero((VP_HANDLE)vp,1);    /* initialize vp to zero. */
+       return (VP_HANDLE)vp;
+    }
+    return VpLoadAlloc(szVal,NULL,mx);
+}
+
+/*
+ * Load the value represented by szVal to existing vp-variable p.
+ * return p,if normally processed,otherwise ERROR code.
+ * p must have enough length to keep value given by szVal without any rounding operation,
+ * otherwise this function fails.
+*/
+VP_EXPORT(VP_HANDLE)
+	VpLoad(VP_HANDLE p,const char *szVal)
+{
+    Real *vp = (Real*)p;
+    if(VpIsInvalid(vp)|| !szVal) return VpException((VP_HANDLE)VP_ERROR_BAD_HANDLE,"Illegal argument for VpLoad()");
+    return VpLoadAlloc(szVal,vp,0);
 }
 
 

@@ -228,6 +228,24 @@ static VP_RETURN Alloc0(VP_ARGS args) {
 	return Alloc(args);
 }
 
+static VP_RETURN Load(VP_ARGS args) {
+	VP_HANDLE v;
+	int i = ((char)args[0]) - 'a'; 
+	if(i<0 || i>=26) {
+		fprintf(stderr,"Undefined variable(%c)!\n",(char)args[0]);
+		return (VP_RETURN)FLAG64_NOMSG;
+	}
+	v = gVpVars[i];
+	v = VpLoad(v,(const char*)args[1]);
+	if(VpIsInvalid(v)) {
+		fprintf(stderr,"Failed to Load(%s).\n",(const char*)args[1]);
+		return (VP_RETURN)FLAG64_NOMSG;
+	}
+	printf("  %c=",(char)args[0]);VpPrintE(stdout,v);printf("\n");
+	return (VP_RETURN)FLAG64_NOMSG;
+}
+
+
 static VP_RETURN MemAlloc(VP_ARGS args) {
 	int i = ((char)args[0]) - 'a';
 	VP_HANDLE v;
@@ -511,6 +529,10 @@ static VP_TOKEN gTokens[] =
 	{"Alloc",Alloc,'v',3,'c','s','u',0,0},
 	{"al",Alloc,'v',3,'c','s','u',0,0},
 	{"=",Alloc0,'v',2,'c','s',0,0,0},
+
+	{"Load",Load,'v',2,'c','s',0,0,0},
+	{"ld",Load,'v',2,'c','s',0,0,0},
+
 
 	{"MemAlloc",MemAlloc,'v',2,'c','u',0,0,0},
 	{"ma",MemAlloc,'v',2,'c','u',0,0,0},

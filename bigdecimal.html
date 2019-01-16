@@ -83,12 +83,18 @@ int main(int argc, char* argv[])
 </code></pre>
 <table>
 <tr><th>Bigdecimal functions</th><th>meaning</th></tr>
-<tr><td> c = VpAlloc(st,m)</td><td>Allocates Bigdecimal variable and sets it's value to st.<br/>
-st is a character string representing any numerical value.<br/>
+<tr><td> c = VpAlloc(szVal,m)</td><td>Allocates Bigdecimal variable and sets it's value to szVal.<br/>
+szVal is a character string representing any numerical value.<br/>
 m is the maximum number of digits c can hold.</td></tr>
 <tr><td> c = VpMemAlloc(m)</td><td>Allocates Bigdecimal variable(the value is 0).<br/>
 m is the maximum number of digits c can hold.</td></tr>
 <tr><td> c = VpClone(a)</td><td>Creates a copy of a.</td></tr>
+<tr><td> c = VpLoad(c,szVal)</td><td>
+ Load the value represented by szVal(which is 'const char *') to existing vp-variable c.<br/>
+ And returns c,if normally processed,otherwise ERROR code.<br/>
+ c must have enough length to keep value given by szVal without any rounding operation, otherwise this function fails.
+</td></tr>
+
 <tr><td> VpFree(&c)</td><td>Frees memories allocated to c.</td></tr>
 </table>
 The first argument(st) of VpAlloc() is the string representing numeric number(initial value:+1234567890...),and the second argument is the maximum number of digits the variable 'a' can store(m).<br/>
@@ -575,6 +581,8 @@ To quit the VPC, just type 'quit' and return.<p/>
         al                         </td><td>Alloc a '1234 67' 10 <br/> a=VpAlloc("1234 67",10)<br/><a href="#ALLOC">see<sup>*</sup></a>  </td></tr>
 <tr><td>MemAlloc         <br/>
         ma                         </td><td><a href="#ALLOC">see<sup>*</sup></a>   </td></tr>
+<tr><td>Load             <br/>
+        ld                         </td><td><a href="#ALLOC">see<sup>*</sup></a>   </td></tr>
 <tr><td>Clone                         </td><td><a href="#ALLOC">see<sup>*</sup></a>   </td></tr>
 <tr><td>MaxLength        <br/>
         ml                         </td><td><a href="#ALLOC">see<sup>*</sup></a> </td></tr>

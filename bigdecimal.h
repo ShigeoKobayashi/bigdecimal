@@ -142,6 +142,7 @@ typedef struct {
 #define VP_ROUND_HALF_EVEN  7
 
 VP_EXPORT(VP_HANDLE) VpAlloc(const char *szVal,VP_UINT mx);
+VP_EXPORT(VP_HANDLE) VpLoad(VP_HANDLE p,const char *szVal);
 VP_EXPORT(VP_HANDLE) VpMemAlloc(VP_UINT mx);
 VP_EXPORT(int)       VpAllocCount(); /* returns VP_HANDLE allocation count */
 VP_EXPORT(VP_HANDLE) VpClone(VP_HANDLE p);
