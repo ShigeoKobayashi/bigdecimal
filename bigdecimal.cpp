@@ -1626,7 +1626,7 @@ static VP_HANDLE
         }
     }
 	if(vp) {
-		mx = vp->MaxPrec;
+		mx = VpMaxLength((VP_HANDLE)vp);
 		if(mx<ni + nf + 1) {
             return VpException((VP_HANDLE)VP_ERROR_BAD_HANDLE,"Maximum length too short to load value.");
 		}
