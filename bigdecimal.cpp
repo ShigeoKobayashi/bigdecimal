@@ -1630,6 +1630,7 @@ static VP_HANDLE
 		if(mx<ni + nf + 1) {
             return VpException((VP_HANDLE)VP_ERROR_BAD_HANDLE,"Maximum length too short to load value.");
 		}
+		memset(vp->frac,0,sizeof(vp->frac[0])*vp->Prec);
 	} else {
 		mx = Max(ni + nf + 1, mx);
 		vp = (Real*)VpMemAlloc(mx);
