@@ -4,6 +4,8 @@
  *
  * Copyright(C) 2012 by Shigeo Kobayashi(shigeo@tinyforest.jp)
  *
+ *     Version 1.1 ... VpLoad() added.
+ *
  */
 
 #ifndef  _BIG_DECIMAL_H

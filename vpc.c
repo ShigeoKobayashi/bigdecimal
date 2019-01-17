@@ -4,6 +4,8 @@
  *
  *  Copyright(C) 2018 by Shigeo Kobayashi(shigeo@tinyforest.jp)
  *
+ *    Version 1.1   ... VpLoad() added.
+ *
  */
 
 #ifdef _WIN32
@@ -21,7 +23,7 @@
 static int DEF_SIZE = 100; /* default size for Bigdecimal variable 'a'-'z' */
 
 /* input line buffer */
-#define MAX_BUFF 1024
+#define MAX_BUFF 2048
 #define MAX_TOKEN   6
 
 static VP_HANDLE gVpVars[26]; /* 'a' - 'z' */

@@ -3,10 +3,15 @@
  * Bigdecimal(Variable decimal precision) C/C++ library.
  *
  * Copyright(C) 2012 by Shigeo Kobayashi(shigeo@tinyforest.jp)
- *
+ * 
+ *    Version 1.1
  */
 
 #include "stdafx.h"
+
+/* Version 1.1       */
+/*   VpLoad() added. */
+VP_EXPORT(int) VpVersion() {return 11;}
 
 /*
  Maximum iteration count for VpSqrt() etc.
@@ -37,8 +42,6 @@ static char    gDigitLeader    = ' '; /* must be 0 or
                                        '+' ... '+' is printed for posotive number.
                                        ' ' ...  ' ' is printed for positive number.
                                        */
-
-VP_EXPORT(int) VpVersion() {return 1;}
 
 /*
    ================================================
