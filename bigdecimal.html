@@ -151,8 +151,8 @@ the resulting digits are being saved to c while the computation is going on.<br/
 <tr><td><b>c = VpDiv(c,r,a,b)</b></td><td> c = a/b (r is a remainder)</td><td><b>VpMaxLength(r)&gt;Max(VpCurLength(a),VpMaxLength(c)+VpCurLength(b))<sup>*</sup></b></td></tr>
 <tr><td><b>f = VpCmp(a,b)</b></td><td> 1(if a&gt;b),0(if a==b),-1(if a&lt;b),VP_ERROR_NON_NUMERIC(if uncomparable).</td><td>return value is an integer. </td></tr>
 
-<tr><td><b>c = VpFrac(c,a)</b></td><td> copies all digits after the decimal point of a to c(|c|&lt;1)</td><td>  </td></tr>
-<tr><td><b>c = VpFix(c,a)<br/>c = VpInt(c,a)</b></td><td> copies all digits before the decimal point of a to c(|c|&gt;=1)</td><td>  </td></tr>
+<tr><td><b>c = VpFrac(c,a)</b></td><td> copies all digits after the decimal point of a to c(|c|&lt;1 or c=0)</td><td>  </td></tr>
+<tr><td><b>c = VpFix(c,a)<br/>c = VpInt(c,a)</b></td><td> copies all digits before the decimal point of a to c(|c|&gt;=1 or c=0)</td><td>  </td></tr>
 <tr><td><b>c = VpAbs(c)</b></td><td> c = |c|</td><td>  </td></tr>
 <tr><td><b>n = VpExponent(c)</b></td><td> returns n,where c=0.xxxxxxx10**n</td><td>n is an integer.</td></tr>
 <tr><td><b>n = VpEffectiveDigits(c)</b></td><td>returns n,where n is the number of effective digits.</td><td>n is an integer for which leading and trailing 0's are not counted.  </td></tr>
