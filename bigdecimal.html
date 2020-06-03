@@ -1,4 +1,4 @@
-<!DOCTYPE html "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang=en>
+﻿<!DOCTYPE html "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang=en>
 <head>
 <title>Bigdecimal: Variable precision decimal arithmetic C/C++ API library</title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
@@ -142,22 +142,35 @@ the resulting digits are being saved to c while the computation is going on.<br/
 
 
 
-<table>
-<tr><th>Bigdecimal functions</th><th>meaning</th><th>notes</th></tr>
-<tr><td><b>c = VpAsgn(c,a,op)</b></td><td> c = a (op=1) or c = -a (op=-1)</td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(b)</td></tr>
-<tr><td><b>c = VpAdd(c,a,b)</b></td><td> c = a+b</td></td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(a+b)</td></tr>
-<tr><td><b>c = VpSub(c,a,b)</b></td><td> c = a-b</td></td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(a-b)</td></tr>
-<tr><td><b>c = VpMul(c,a,b)</b></td><td> c = a*b</td></td><td><b>VpMaxLength(c)&gt;VpCurLength(a)+VpCurLength(b)<sup>*</sup></b></td></tr>
-<tr><td><b>c = VpDiv(c,r,a,b)</b></td><td> c = a/b (r is a remainder)</td><td><b>VpMaxLength(r)&gt;Max(VpCurLength(a),VpMaxLength(c)+VpCurLength(b))<sup>*</sup></b></td></tr>
-<tr><td><b>f = VpCmp(a,b)</b></td><td> 1(if a&gt;b),0(if a==b),-1(if a&lt;b),VP_ERROR_NON_NUMERIC(if uncomparable).</td><td>return value is an integer. </td></tr>
+                                                                                                                                <table>
+                                                                                                                                    <tr><th>Bigdecimal functions</th><th>meaning</th><th>notes</th></tr>
+                                                                                                                                    <tr><td><b>c = VpAsgn(c,a,op)</b></td><td> c = a (op=1) or c = -a (op=-1)</td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(b)</td></tr>
+                                                                                                                                    <tr><td><b>c = VpAdd(c,a,b)</b></td><td> c = a+b</td></td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(a+b)</td></tr>
+                                                                                                                                    <tr><td><b>c = VpSub(c,a,b)</b></td><td> c = a-b</td></td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(a-b)</td></tr>
+                                                                                                                                    <tr><td><b>c = VpMul(c,a,b)</b></td><td> c = a*b</td></td><td><b>VpMaxLength(c)&gt;VpCurLength(a)+VpCurLength(b)<sup>*</sup></b></td></tr>
+                                                                                                                                    <tr><td><b>c = VpDiv(c,r,a,b)</b></td><td> c = a/b (r is a remainder)</td><td><b>VpMaxLength(r)&gt;Max(VpCurLength(a),VpMaxLength(c)+VpCurLength(b))<sup>*</sup></b></td></tr>
+                                                                                                                                    <tr><td><b>f = VpCmp(a,b)</b></td><td> 1(if a&gt;b),0(if a==b),-1(if a&lt;b),VP_ERROR_NON_NUMERIC(if uncomparable).</td><td>return value is an integer. </td></tr>
 
-<tr><td><b>c = VpFrac(c,a)</b></td><td> copies all digits after the decimal point of a to c(|c|&lt;1 or c=0)</td><td>  </td></tr>
-<tr><td><b>c = VpFix(c,a)<br/>c = VpInt(c,a)</b></td><td> copies all digits before the decimal point of a to c(|c|&gt;=1 or c=0)</td><td>  </td></tr>
-<tr><td><b>c = VpAbs(c)</b></td><td> c = |c|</td><td>  </td></tr>
-<tr><td><b>n = VpExponent(c)</b></td><td> returns n,where c=0.xxxxxxx10**n</td><td>n is an integer.</td></tr>
-<tr><td><b>n = VpEffectiveDigits(c)</b></td><td>returns n,where n is the number of effective digits.</td><td>n is an integer for which leading and trailing 0's are not counted.  </td></tr>
-<tr><td><b>c = VpRevertSign(c)<br/>c = VpNegate(c)</b></td><td> c = -c</td><td>  </td></tr>
-<tr><td><b>f = VpGetSign(c)</b></td><td>1(if c&gt;0),(-1 if c&lt;0)</td><td>return value is an integer.  </td></tr>
+                                                                                                                                    <tr><td><b>c = VpFrac(c,a)</b></td><td> copies all digits after the decimal point of a to c(|c|&lt;1 or c=0)</td><td>  </td></tr>
+                                                                                                                                    <tr><td><b>c = VpFix(c,a)<br />c = VpInt(c,a)</b></td><td> copies all digits before the decimal point of a to c(|c|&gt;=1 or c=0)</td><td>  </td></tr>
+                                                                                                                                    <tr><td><b>c = VpAbs(c)</b></td><td> c = |c|</td><td>  </td></tr>
+                                                                                                                                    <tr><td><b>n = VpExponent(c)</b></td><td> returns n,where c=0.xxxxxxx10**n</td><td>n is an integer.</td></tr>
+                                                                                                                                    <tr><td><b>n = VpEffectiveDigits(c)</b></td><td>returns n,where n is the number of effective digits.</td><td>n is an integer for which leading and trailing 0's are not counted.  </td></tr>
+                                                                                                                                    <tr><td><b>c = VpRevertSign(c)<br />c = VpNegate(c)</b></td><td> c = -c</td><td>  </td></tr>
+                                                                                                                                    <tr><td><b>f = VpGetSign(c)</b></td>
+                          <td>returns one of the values defined in bigdecimal.h as listed bellow :
+                           <table>
+                              <tr><th>value returned (f)  </th><th> c is a </th></tr>
+                              <tr><td> VP_SIGN_NaN( 0) </td><td> NaN </td></tr>
+                              <tr><td> VP_SIGN_POSITIVE_ZERO( 1) </td><td> positive zero </td></tr>
+                              <tr><td> VP_SIGN_NEGATIVE_ZERO(-1) </td><td> negative zero </td></tr>
+                              <tr><td> VP_SIGN_POSITIVE_FINITE( 2) </td><td> positive finite number</td></tr>
+                              <tr><td> VP_SIGN_NEGATIVE_FINITE(-2) </td><td>  negative finite number</td></tr>
+                              <tr><td> VP_SIGN_POSITIVE_INFINITE( 3)</td><td> positive infinite number</td></tr>
+                              <tr><td> VP_SIGN_NEGATIVE_INFINITE(-3)</td><td>  negative infinite number</td></tr>
+                           </table>
+                         </td><td>return value is an integer.  
+           </td></tr>
 <tr><td><b>c = VpSetSign(c,f)</b></td><td>sets c=|c|(if f&gt;0),c=-|c|(if f&lt;0)</td><td>f is an integer.</td></tr>
 </table>
 
