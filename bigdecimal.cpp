@@ -3025,7 +3025,7 @@ VP_EXPORT(VP_HANDLE)
         VpAsgn(y,r,0);
         if(++gIterCount>gMaxIter) {
             VpRdup((Real*)y,0);
-            VpException(y,"Maximum iteration count exhausted in VpAtan()");
+            VpException(y,"Maximum iteration count exhausted in VpLog()");
             goto Exit;
         }
     }
