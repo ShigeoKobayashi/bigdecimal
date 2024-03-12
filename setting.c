@@ -1,0 +1,267 @@
+/*
+ * Variable precision calculator.
+ * (Test program for Bigdecimal(Variable decimal precision) C/C++ library.)
+ *
+ *  Copyright(C) 2024 by Shigeo Kobayashi(shigeo@tinyforest.jp)
+ *
+ *    Version 2.0
+ *
+ */
+#include "vpc.h"
+
+int  gmPrecision   = 100;
+int  gmIterations  = 10000;
+
+UCHAR gszTitle[512];
+int   gmTitle = sizeof(gszTitle) / sizeof(gszTitle[0]);
+
+UCHAR* gszVTitle[26];
+int    gmVTitle = sizeof(gszVTitle) / sizeof(gszVTitle[0]);
+
+/* format */
+int  gnCount       = 10;
+UCHAR gchFormatChar = 'E';
+UCHAR gchSeparator  = ' ';
+UCHAR gchQuote      = 'q';
+UCHAR gchLeader     = '*';
+int  gRoundMode    = VP_ROUND_HALF_UP;
+
+typedef struct _ROUNDMODE {
+	UCHAR* name;
+	int   value;
+} ROUNDMODE;
+static ROUNDMODE gRMode[] = {
+	{"up",VP_ROUND_UP},
+	{"down",VP_ROUND_DOWN},
+	{"half_up",VP_ROUND_HALF_UP},     /*  default */
+	{"half_down",VP_ROUND_HALF_DOWN},
+	{"ceil",VP_ROUND_CEIL},
+	{"floor",VP_ROUND_FLOOR},
+	{"half_even",VP_ROUND_HALF_EVEN}
+};
+static int gmRMode = sizeof(gRMode) / sizeof(gRMode[0]);
+
+void PrintFormat(FILE *f)
+{
+	fprintf(f,"$format = '%d%c%c%c%c'\n", gnCount, gchLeader, gchFormatChar, gchSeparator, gchQuote);
+}
+
+void PrintPrecision(FILE *f)
+{
+	fprintf(f,"$precision = '%d'\n", gmPrecision);
+}
+
+void PrintRound(FILE *f)
+{
+	fprintf(f,"$round = '%s'\n", gRMode[gRoundMode].name);
+}
+
+void PrintIterations(FILE *f)
+{
+	fprintf(f,"$max_iterations = '%d'\n", gmIterations);
+}
+
+static UCHAR GetQuote(UCHAR* psz)
+{
+	UCHAR ch;
+	while (ch = *psz++) {
+		if (ch == '\'') return '\"';
+		if (ch == '\"') return '\'';
+	}
+	return'\"';
+}
+void PrintTitle(FILE* f)
+{
+	UCHAR ch;
+	if ( gszTitle[0] =='\0' ) fprintf(f, "$title = ' '\n");
+	else {
+		ch = GetQuote(gszTitle); fprintf(f, "$title = %c%s%c\n", ch, gszTitle, ch);
+	}
+}
+
+void OutputVariableTitle(FILE* f, UCHAR chv)
+{
+	int ixv = chv - 'a';
+	UCHAR ch;
+
+	if (ixv < 0 || ixv > 25) {
+		gcError++; fprintf(stderr, "Error: undefined variable(%c)\n", chv);
+		return;
+	}
+	if (gszVTitle[ixv] != NULL) {
+		fprintf(f, " $%c = ", chv);
+		ch = GetQuote(gszVTitle[ixv]);
+		fprintf(f, "%c%s%c\n",ch, gszVTitle[ixv],ch);
+	}
+	else {
+		fprintf(f, " $%c = ' '\n", chv);
+	}
+
+}
+
+void PrintVariableTitle(FILE* f,int iStatement)
+{
+	UCHAR chv = TokenChar(iStatement,1, 1);
+	OutputVariableTitle(f, chv);
+}
+
+void PrintVariable(FILE* f, UCHAR chv) 
+{
+	VP_HANDLE v;
+	int ixv = chv - 'a';
+
+	if (ixv < 0 || ixv >= 25) ixv = 26;
+	v = gVariables[ixv];
+	fprintf(f," %c = ", chv);
+	if (gchQuote == 'Q') fprintf(f,"%c", '\'');
+	if (VpIsValid(v)) {
+		if (gchFormatChar == 'E') VpPrintE(f, v);
+		else                      VpPrintF(f, v);
+	}
+	else {
+		fprintf(f,"0.0");
+	}
+	if (gchQuote == 'Q') fprintf(f,"%c", '\'');
+	fprintf(f,"\n");
+}
+
+void DoPrint(int iStatement)
+{
+	int i;
+	FILE* f = stdout;
+
+	for (i = 0; i < gmSetting; ++i) {
+		if (strcmp(TokenPTR(iStatement,1),gSetting[i].name)==0) {
+			((void(*)(FILE*))gSetting[i].print)(f); return;
+		};
+	}
+	if (TokenSize(iStatement,1) == 1)  { PrintVariable(f, TokenChar(iStatement, 1, 0)); return;}
+	gcError++; fprintf(stderr, "Error: undefined variable(%s).\n", TokenPTR(iStatement,1));
+	return;
+}
+
+
+void DoRound(int iStatement)
+{
+	int i;
+
+	for (i = 0; i < gmRMode; ++i) {
+		if (IsToken(gRMode[i].name, iStatement, 2)) { VpSetRoundMode(gRMode[i].value); return; }
+	}
+	gcError++; fprintf(stderr, "Error: undefined round mode(%s)", TokenPTR(iStatement,2));
+}
+
+void DoFormat(int iStatement)
+{
+	int i,id,nd;
+	UCHAR ch;
+	int nch;
+	nch = TokenSize(iStatement,2);
+	for (i = 0; i < nch; ++i) {
+		ch = TokenChar(2, iStatement, i);
+		if (ch == '\'' || ch == '\"') continue;
+		if (ch == 'E') { gchFormatChar = 'E'; continue; }
+		if (ch == 'F') { gchFormatChar = 'F'; continue; }
+		if (ch == ' ') { gchSeparator  = ' '; VpSetDigitSeparator(' '); continue; }
+		if (ch == ',') { gchSeparator  = ','; VpSetDigitSeparator(','); continue; }
+		if (ch == 'Q') { gchQuote      = 'Q'; continue; }
+		if (ch == 'q') { gchQuote      = 'q'; continue; }
+		if (ch == '+') { gchLeader     = '+'; VpSetDigitLeader('+'); continue; }   /* '+' for positive number */
+		if (ch == '-') { gchLeader     = '-'; VpSetDigitLeader('\0'); continue; }  /* no ' ' before positive number */
+		if (ch == '*') { gchLeader     = '*'; VpSetDigitLeader(' '); continue; }   /* ' ' before positive number */
+		id = ch - '0';
+		if (id >= 0 && id <= 9) {
+			nd = 0;
+			while (i < nch) {
+				nd = nd * 10 + id;
+				ch = TokenChar(2, iStatement, i+1);
+				id = ch - '0';
+				if (id < 0 == id > 9) break;
+				++i;
+			}
+			gnCount = nd;
+			VpSetDigitSeparationCount(nd);
+		}
+		else {
+			gcError++; fprintf(stderr, "Warning: illegal format character(%c ignored).\n", ch);
+		}
+	}
+}
+
+void DoPrecision(int iStatement)
+{
+	int  nd;
+	if (!ToIntFromSz(&nd, TokenPTR(iStatement,2))) return;
+	if (nd < 20) {gcError++; fprintf(stderr, "Error: negative or too small value for $precision(%d).\n",nd); return; }
+	gmPrecision = nd;
+}
+
+void DoIterations(int iStatement)
+{
+	int  nd;
+	if (TokenCount(iStatement) != 3 || !IsToken("=", iStatement, 1)) { gcError++; fprintf(stderr, "Error: syntax error.\n"); return; }
+	if (!ToIntFromSz(&nd, TokenPTR(iStatement,2))) return;
+	if (nd < 100) { gcError++; fprintf(stderr, "Error: negative or too small value for $max_iterations(%d).\n", nd); return; }
+	VpSetMaxIterationCount(nd);
+	gmIterations = nd;
+}
+
+void DoTitle(int iStatement)
+{
+	int l;
+	UCHAR* psz = TokenPTR(iStatement,2);
+	if (TokenCount(iStatement) == 2 && IsToken("=", iStatement,1)) {	strcpy(gszTitle, " ");	return; }
+	if (TokenCount(iStatement) != 3 || !IsToken("=", iStatement, 1)) { gcError++; fprintf(stderr, "Error: syntax error.\n"); return; }
+	if (((size_t)l=strlen(psz)) >= (size_t)gmTitle) {
+		gcError++; fprintf(stderr, "Error: String too long for $title.\n");
+		return;
+	}
+	if(l>0) strcpy(gszTitle, psz);
+	else    strcpy(gszTitle, " ");
+}
+
+void DoSetting(int iStatement)
+{
+	int i;
+
+	for (i = 0; i < gmSetting; ++i) {
+		if (IsToken(gSetting[i].name, iStatement, 0)) {
+			((void(*)(int))gSetting[i].calc)(iStatement); return;
+		}
+	}
+	gcError++; fprintf(stderr, "Error: invalid identifier(%s).\n", TokenPTR(iStatement,0));
+}
+
+void SetVTitle(int iStatement)
+{
+	UCHAR  chv;
+	UCHAR* pv;
+	int   ixv,nc;
+	int nt = TokenCount(iStatement);
+
+	if (TokenSize(iStatement,0) != 2)                                goto Error;
+	if (TokenCount(iStatement)  != 2 && TokenCount(iStatement) != 3) goto Error;
+
+	chv = TokenChar(iStatement,0,1);
+	ixv = chv - 'a';
+	if (ixv < 0 || ixv>5)  goto Error;
+	pv = gszVTitle[ixv];
+	nc = strlen(TokenPTR(iStatement,2)) + 2;
+	if (nc > 512) {
+		gcError++; fprintf(stderr, "Error: too long variable title.");
+		return;
+	}
+	if (pv != NULL) free(pv);
+	gszVTitle[ixv] = calloc(sizeof(UCHAR), nc);
+
+	if (TokenCount(iStatement) == 2) {
+		strcpy(gszVTitle[ixv], " ");
+	}
+	else if (TokenCount(iStatement) == 3) {
+		strcpy(gszVTitle[ixv],TokenPTR(iStatement,2));
+	}
+	return;
+
+Error:
+	printf("Error: syntax error.\n");
+}
