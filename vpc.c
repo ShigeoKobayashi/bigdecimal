@@ -9,7 +9,7 @@
  */
 
 #include "vpc.h"
-
+#include <signal.h>
 
 void InitVpc(int cInput,int cToken)
 {
@@ -20,25 +20,34 @@ void InitVpc(int cInput,int cToken)
 
 void FinishVpc(int e)
 {
-	FinishReader();
-	FinishParser();
 	FinishCalculator();
+	FinishParser();
+	FinishReader();
 	exit(e);
 }
 
 void MyException(VP_HANDLE h, const char* msg)
 {
-	fprintf(stderr,"Error: %s\n", msg);
-	++gcError;
+	ERROR(fprintf(stderr,"Error: %s\n", msg));
 }
+
+/*
+void CtrlC(int signal)
+{
+	printf("\n\'CTRL-C\' pressed. To quit the program, enter \'y\'(any other to continue)? ");
+	if(getchar()=='y') FinishVpc(signal);
+}
+*/
 
 int main(int argc, UCHAR* argv[])
 {
-
 	printf("\nVPC(Variable Precision Calculator V2) of Bigdecimal(V%d)\n",VpVersion());
 	printf("  Copyright (c) 2024 by Shigeo Kobayashi. Allrights reserved.\n\n");
 	printf("Enter command");
 
+/*
+	signal(SIGINT, CtrlC);
+*/
 	VpSetExceptionHandler(MyException);
 
 	InitVpc(1024,512);

@@ -57,8 +57,7 @@ void InitParser()
 	gStack  = calloc(gmTokens, sizeof(int));
 	gPolish = calloc(gmTokens, sizeof(int));
 	if (gStack == NULL|| gPolish == NULL) {
-		gcError++; fprintf(stderr, "SYSTEM_ERROR: memory allocation failed: stack(%d)\n", gmTokens);
-		FinishVpc(-1);
+		FATAL(fprintf(stderr, "SYSTEM_ERROR: memory allocation failed: stack(%d)\n", gmTokens));
 	}
 }
 
@@ -155,8 +154,7 @@ static int IsVariable(int iStatement,int it)
 More:
 	if (it + 1 >= gStatements[iStatement].end) return 1;
 	if (IsToken("(", iStatement, it+1)) {
-		gcError++; fprintf(stderr, "Error:'");
-		gcError++; fprintf(stderr, " syntax invalid(variable is not a function).\n");
+		ERROR(fprintf(stderr, "Error: syntax invalid(variable is not a function).\n"));
 		return 0;
 	}
 	return 1;
@@ -266,9 +264,9 @@ ArgNoCheck: /* check on argument number */
 	return 1;
 
 Error:
-	gcError++; fprintf(stderr, "Error:'");
+	ERROR(fprintf(stderr, "Error:'"));
 	PrintToken(stderr, iStatement, it);
-	gcError++; fprintf(stderr, "' syntax invalid(illegal arguments or illegal number of arguments).\n");
+	ERROR(fprintf(stderr, "' syntax invalid(illegal arguments or illegal number of arguments).\n"));
 	return 0;
 }
 
@@ -298,7 +296,7 @@ static int StackSize()
 static int Push(int i)
 {
 	if (gcStack >= StackSize()) {
-		gcError++; fprintf(stderr, "Error: stack overflowed(%d).\n", StackSize());
+		ERROR(fprintf(stderr, "Error: stack overflowed(%d).\n", StackSize()));
 		return -1;
 	}
 	gStack[gcStack++] = i;
@@ -313,7 +311,7 @@ static int Empty()
 static int Pop()
 {
 	if (gcStack <= 0) {
-		gcError++; fprintf(stderr, "Error: stack underflowed.\n");
+		ERROR(fprintf(stderr, "Error: stack underflowed.\n"));
 		return -1;
 	}
 	return gStack[--gcStack];
@@ -322,7 +320,7 @@ static int Pop()
 static int Top()
 {
 	if (gcStack <= 0) {
-		gcError++; fprintf(stderr, "Error: stack underflowed.\n");
+		ERROR(fprintf(stderr, "Error: stack underflowed.\n"));
 		return -1;
 	}
 	return gStack[gcStack - 1];
@@ -353,14 +351,14 @@ static int ParsePolish(int iStatement)
 			case VPC_BOPERATOR:
 				--ci;
 				if (ci < 1) {
-					gcError++; fprintf(stderr, "Error: syntax error.\n");
+					ERROR(fprintf(stderr, "Error: syntax error.\n"));
 					return 0;
 				}
 				break;
 			case VPC_FUNC:
 				ci -= (abs(FunctionArguments(TokenWhat2(iStatement,token)))-1);
 				if (ci < 1) {
-					gcError++; fprintf(stderr, "Error: syntax error.\n");
+					ERROR(fprintf(stderr, "Error: syntax error.\n"));
 					return 0;
 				}
 				break;
@@ -370,8 +368,7 @@ static int ParsePolish(int iStatement)
 		}
 	}
 	if (ci == 1) return 1;
-
-	gcError++; fprintf(stderr, "Error: syntax error.\n");
+	ERROR(fprintf(stderr, "Error: syntax error.\n"));
 	return 0;
 }
 
@@ -424,12 +421,12 @@ static int MkReversePolish(int iStatement)
 			Push(it); /* sin cos ... */
 			break;
 		default:
-			gcError++; fprintf(stderr, "Error: syntax error(");
+			ERROR(fprintf(stderr, "Error: syntax error("));
 			nc = TokenSize(iStatement,it);
 			for (i = 0; i < nc; ++i) {
-				gcError++; fprintf(stderr, "%c", TokenChar(iStatement,it, i));
+				fprintf(stderr, "%c", TokenChar(iStatement,it, i));
 			}
-			gcError++; fprintf(stderr, ").\n");
+			fprintf(stderr, ").\n");
 			return -1;
 		}
 	}
@@ -446,7 +443,7 @@ static int ParseCalculation(int iStatement)
 	return 1;
 
 SyntaxError:
-	gcError++; fprintf(stderr, "Syntax error.\n");
+	ERROR(fprintf(stderr, "Syntax error.\n"));
 	return 0;
 }
 
@@ -475,11 +472,12 @@ int ExecuteStatement(int iStatement)
 	if (IsToken("read", iStatement, 0) && nt == 2) { DoRead  (TokenPTR(iStatement, 1)); return 1; }
 	if (IsToken("write", iStatement, 0) && nt == 2) { DoWrite (TokenPTR(iStatement, 1)); return 1; }
 	if (IsToken("repeat", iStatement, 0) && nt == 2) { DoRepeat(TokenPTR(iStatement, 1)); return 1; }
+	if (IsToken("while", iStatement, 0) && (nt == 4||nt==5)) { DoWhile(iStatement, nt); return 1; }
 
 	if (TokenWhat(iStatement, 0) == VPC_VARIABLE) {
 		if(ParseCalculation(iStatement)) ComputePolish(iStatement);
 	} else {
-		gcError++; fprintf(stderr, "Error: Syntax error.\n");
+		ERROR(fprintf(stderr, "Error: Syntax error.\n"));
 	}
 	return 1;
 }
@@ -499,7 +497,7 @@ int ParseStatement(int iStatement)
 		if (IsToken("(", iStatement, i)) ++cBracket;
 		if (IsToken(")", iStatement, i)) {
 			if (cBracket <= 0) {
-				gcError++; fprintf(stderr, "Error: brackets unbalanced.\n");
+				ERROR(fprintf(stderr, "Error: brackets unbalanced.\n"));
 				return 0;
 			}
 			--cBracket;
@@ -508,7 +506,7 @@ int ParseStatement(int iStatement)
 	}
 
 	if (cBracket != 0) {
-		gcError++; fprintf(stderr, "Error: brackets unbalanced.\n");
+		ERROR(fprintf(stderr, "Error: brackets unbalanced.\n"));
 		return 0;
 	}
 
@@ -516,24 +514,47 @@ int ParseStatement(int iStatement)
 	{
 	case '$':
 		if (nt != 3) {
-			gcError++; fprintf(stderr, " Syntax error.\n");
+			ERROR(fprintf(stderr, " Syntax error.\n"));
 			return 0;
 		}
 		if (IsToken("=", iStatement, 1)) return 1;
-		gcError++; fprintf(stderr, " Syntax error (=).\n");
+		ERROR(fprintf(stderr, " Syntax error (=).\n"));
 		return 0;
 	case '?':
-		if (TokenCount(iStatement) != 2) { gcError++; fprintf(stderr, " Syntax error.\n"); return 0; }
+		if (TokenCount(iStatement) != 2) { ERROR(fprintf(stderr, " Syntax error.\n")); return 0; }
 		return 1;
 	}
 
 	if (IsToken("read", iStatement, 0) && nt == 2) return 1;
 	if (IsToken("write", iStatement, 0) && nt == 2) return 1;
 	if (IsToken("repeat", iStatement, 0) && nt == 2) return 1;
+	if (IsToken("while", iStatement, 0) && (nt == 4 || nt == 5)) {
+		int  nm = 0;
+		char chv1 = TokenChar(iStatement, 1, 0);
+		char chv2;
+		if (nt == 4) {
+			if (!IsToken(">", iStatement, 2) && !IsToken("<", iStatement, 2)) goto Error;
+			chv2 = TokenChar(iStatement, 3, 0);
+		}
+		else {
+			if (!IsToken("=", iStatement, 3) ) goto Error;
+			if (TokenSize(iStatement, 2) != 1) goto Error;
+			chv2 = TokenChar(iStatement, 2, 0);
+			if ((chv2 != '=') && (chv2 != '!') && (chv2 != '>') && (chv2 != '<')) goto Error;
+			chv2 = TokenChar(iStatement, 4, 0);
+		}
+		chv1 = chv1 - 'a';
+		chv2 = chv2 - 'a';
+		if ((chv1 < 0 || chv1>9) && (chv2 < 0 || chv2>9)) {
+			ERROR(fprintf(stderr, "Error: At least one variable must be specified(%s).\n", TokenPTR(iStatement, 0)));
+			goto Error;
+		}
+		return 1;
+	}
 
 	if (TokenWhat(iStatement, 0) == VPC_VARIABLE) return ParseCalculation(iStatement);
-	else {
-		gcError++; fprintf(stderr, "Error: Syntax error.\n");
-	}
+
+Error:
+	ERROR(fprintf(stderr, "Error: Syntax error(%s).\n",TokenPTR(iStatement,0)));
 	return 0;
 }

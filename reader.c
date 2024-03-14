@@ -9,7 +9,9 @@
  */
 #include "vpc.h"
 
-int     gcError = 0; /* flag for error */
+int        gcError = 0; /* flag for error(error counter in a line) */
+int        gnRepeat= 0; /* repeat counter */
+int        gfWhile = 0; /* flag for 'while' */
 
 UCHAR*     gInputBuffer  = NULL;  /* read buffer */
 int        gmInputBuffer = 0;     /* Max buffer character size*/
@@ -23,10 +25,9 @@ STATEMENT* gStatements   = NULL;  /* Token count read to gTokens of 'one' statem
 int        gmStatements  = 0;
 int        gcStatements  = 0;     /* Current statement processed    */
 
-UCHAR      gDelimiters[] = { '?' , '(', ')' ,  '=' , '*' , '/' , '+' , '-' , ',' , ';' };
+UCHAR      gDelimiters[] = { '?' , '(', ')' ,  '=' , '*' , '/' , '+' , '-' , ',' , ';', '<' , '>' , '!' };
 int        gmDelimiters  = sizeof(gDelimiters)/sizeof(gDelimiters[0]);
 
-int        gnRepeat; /* repeat counter */
 
 void InitReader(int buffer_size,int token_size)
 {
@@ -51,8 +52,7 @@ void InitReader(int buffer_size,int token_size)
 	}
 
 	if (gInputBuffer == NULL || gTokens == NULL || gStatements == NULL) {
-		gcError++; fprintf(stderr,"SYSTEM ERROR: Buffer memory allocation failed(tried to allocate character=%d,token=%d\n)", gmInputBuffer,gmTokens);
-		FinishVpc(-1);
+		FATAL(fprintf(stderr,"SYSTEM ERROR: Buffer memory allocation failed(tried to allocate character=%d,token=%d\n)", gmInputBuffer,gmTokens));
 	}
 }
 
@@ -127,8 +127,7 @@ static UCHAR SkipToEOL(FILE *f)
 static void PushBuffer(int ch)
 {
 	if (gcInputBuffer >= gmInputBuffer) {
-		gcError++; fprintf(stderr, "SYSTEM_ERROR:String buffer overflowed(%d)\n", gmInputBuffer);
-		FinishVpc(-1);
+		FATAL(fprintf(stderr, "SYSTEM_ERROR:String buffer overflowed(%d)\n", gmInputBuffer));
 	}
 	gInputBuffer[gcInputBuffer++] = ch;
 	gInputBuffer[gcInputBuffer] = '\0';
@@ -137,8 +136,7 @@ static void PushBuffer(int ch)
 static UCHAR PopBuffer()
 {
 	if (--gcInputBuffer < 0) {
-		gcError++; fprintf(stderr, "SYSTEM_ERROR:String buffer underflowed.");
-		FinishVpc(-1);
+		FATAL(fprintf(stderr, "SYSTEM_ERROR:String buffer underflowed."));
 	}
 	return gInputBuffer[gcInputBuffer];
 }
@@ -146,8 +144,7 @@ static UCHAR PopBuffer()
 static void PushToken(int iStatement,int ixs, int ixe)
 {
 	if (gcTokens >= gmTokens) {
-		gcError++; fprintf(stderr, "SYSTEM_ERROR:Token buffer overflowed(%d)\n", gmTokens);
-		FinishVpc(-1);
+		FATAL(fprintf(stderr, "SYSTEM_ERROR:Token buffer overflowed(%d)\n", gmTokens));
 	}
 	gTokens[gcTokens].start     = ixs;
 	gTokens[gcTokens].end       = ixe;
@@ -258,7 +255,7 @@ static UCHAR ReadToken(FILE* f, int* ixFrom, int* ixTo)
 		*ixTo = gcInputBuffer;
 		PushBuffer(ch);
 	}
-	PushBuffer('\0'); /* Token del. in input character buffer */
+	PushBuffer('\0');
 	return ch;
 }
 
@@ -279,31 +276,6 @@ static UCHAR ReadStatement(FILE* f,int iStatement,int *nc)
 	return ch;
 }
 
-void DoRepeat(UCHAR* repeat)
-{
-	UCHAR ch;
-	int   v;
-
-	if (gnRepeat == 0) {
-		if (isspace(*repeat)) repeat++;
-		if (*repeat == '+')   repeat++;
-		while (ch = *repeat++) {
-			v = ch - '0';
-			if (v < 0 || v>9) goto Error;
-			gnRepeat = gnRepeat * 10 + v;
-		}
-	}
-	else {
-		gcError++; fprintf(stderr, "Error: \'repeat\' can not be nested(execution interrupted.).\n");
-	}
-	return;
-
-Error:
-	gcError++; fprintf(stderr, "Error: invalid character(%c), integer number expected.\n", ch);
-	gnRepeat = 0;
-	gcError++;
-	return;
-}
 
 static UCHAR ReadLine(FILE* f)
 {
@@ -324,8 +296,7 @@ static UCHAR ReadLine(FILE* f)
 
 		PushBuffer('\0');
 		if (gcStatements >= gmStatements) {
-			fprintf(stderr, "SYTEM_ERROR: too meny statements(%d)", gmStatements);
-			FinishVpc(-1);
+			FATAL(fprintf(stderr, "SYTEM_ERROR: too meny statements(%d)", gmStatements));
 		}
 		ParseStatement (gcStatements);
 		gcStatements++;
@@ -335,25 +306,38 @@ static UCHAR ReadLine(FILE* f)
 #ifdef _DEBUG
 	PrintTokens();
 #endif
-
 	if (gcError == 0) {
+		/* No syntax error => execute statements in a line */
 		int i;
 		for (i = 0; i < gcStatements; ++i) {
-			gnRepeat = 0;
-			if (ExecuteStatement(i) < 0) { ch = EOF; break; }
-			if (gnRepeat > 0) {
-				int j;
-				while (--gnRepeat > 0) {
-					for (j = i + 1; j < gcStatements; ++j) {
-						if (ExecuteStatement(j) < 0) { ch = EOF; break; }
-						if (gcError > 0) break;
+			do {
+				gnRepeat = 0;
+				gfWhile = 0;
+				if (ExecuteStatement(i) < 0) { ch = EOF; return ch; }
+				if (gfWhile < 0) { gfWhile = 0; return ch; }
+				/* repeat */
+				if (gnRepeat > 0) {
+					int j;
+					while (--gnRepeat > 0) {
+						for (j = i + 1; j < gcStatements; ++j) {
+							if (ExecuteStatement(j) < 0) return EOF;
+							if (gcError > 0) return ch;
+						}
 					}
 				}
-			}
-			if (IsEOF(ch) || gcError > 0) break;
+		
+				/* while */
+				if (gfWhile > 0) {
+					int j;
+					for (j = i + 1; j < gcStatements; ++j) {
+						if (ExecuteStatement(j) < 0) return  EOF;
+						if (gcError > 0) return ch;
+					}
+				}
+			} while (gfWhile);
 		}
+		if (IsEOF(ch) || gcError > 0) return ch;
 	}
-	gnRepeat = 0;
 	return ch;
 }
 

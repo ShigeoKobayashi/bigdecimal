@@ -4,7 +4,7 @@
  *
  *  Copyright(C) 2018 by Shigeo Kobayashi(shigeo@tinyforest.jp)
  *
- *    Version 2.0   ... VpLoad() added.
+ *    Version 2.0
  *
  */
 
@@ -20,6 +20,9 @@
 #include "bigdecimal.h"
 
 #define UCHAR unsigned char
+
+#define ERROR(s)   {gcError++; s ;}
+#define FATAL(s)  {s ; FinishVpc(-1);}
 
 /* NODE.what */
 #define VPC_VARIABLE   1  /* a,b,c,..,z or R                         */
@@ -54,7 +57,10 @@ typedef struct _FUNCTION {
 } FUNCTION;
 
 /* Extern items defined in vpc.c */
-extern int    gcError;
+extern int      gcError;  /* flag for error(error counter in a line) */
+extern int      gnRepeat; /* repeat counter */
+extern int      gfWhile;  /* flag for 'while' */
+
 extern void   InitVpc(int cInput, int cToken);
 extern void   FinishVpc(int e);
 
@@ -79,6 +85,7 @@ extern void   InitReader(int buffer_size, int token_size);
 extern void   FinishReader();
 extern void   ReadLines(FILE* f);
 extern void   DoRepeat(UCHAR* repeat);
+extern void   DoWhile(int iStatement,int nt);
 extern int    IsToken(const UCHAR* token, int iStatement,int it);
 extern int    TokenCount(int iStatement);
 extern int    TokenSize(int iStatement,int it);
@@ -112,16 +119,20 @@ extern int     gmSetting;
 
 
 /* Extern items defined in calculator.c */
-extern void        InitCalculator();
-extern void        FinishCalculator();
-extern void        ComputePolish();
-extern int         ToIntFromSz(int* pi, UCHAR* sz);
+extern void         InitCalculator();
+extern void         FinishCalculator();
+extern void         ComputePolish();
+extern int          ToIntFromSz(int* pi, UCHAR* sz);
+extern int          CreateNumericWorkVariable(UCHAR* szN);
 
-extern FUNCTION    gFunctions[]; /* sin,cos,... etc */
-extern int         gmFunctions;  /* Max functions count */
-extern VP_HANDLE   gVariables[];
-extern int         gmVariables;
+extern FUNCTION     gFunctions[]; /* sin,cos,... etc */
+extern int          gmFunctions;  /* Max functions count */
+extern VP_HANDLE    gVariables[];
+extern int          gmVariables;
+extern VP_HANDLE    gWorkVariables[];
+extern int          gmWorkVariables;
 
+extern int          EnsureVariable(int iv, int mx);
 extern const UCHAR* FunctionName(int i);
 extern int          FunctionArguments(int i);
 extern int*         gPolish;

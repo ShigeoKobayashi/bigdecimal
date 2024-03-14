@@ -9,6 +9,7 @@
  */
 #include "vpc.h"
 
+static VP_HANDLE VpcAbs(VP_HANDLE v) { return VpAbs(v); }
 static VP_HANDLE VpcSin(VP_HANDLE v, VP_HANDLE a) { return VpSin(v, a); }
 static VP_HANDLE VpcCos(VP_HANDLE v, VP_HANDLE a) { return VpCos(v, a); }
 static VP_HANDLE VpcAtn(VP_HANDLE v, VP_HANDLE a) { return VpAtan(v, a); }
@@ -21,28 +22,50 @@ static VP_HANDLE VpcSqrt(VP_HANDLE v, VP_HANDLE a) { return VpSqrt(v, a); }
 static VP_HANDLE VpcTrim(VP_HANDLE v, int nt)      { return VpLengthRound(v, nt); }
 static VP_HANDLE VpcRound(VP_HANDLE v, int nt)     { return VpScaleRound (v, nt); }
 static VP_HANDLE VpcPower(VP_HANDLE v, VP_HANDLE a,int nt)   { return VpPower(v, a, nt); }
+static VP_HANDLE VpcDigits(VP_HANDLE v,VP_HANDLE va) {
+	char sz[32];
+	int n = VpEffectiveDigits(va);
+	sprintf(sz, "%d", n);
+	return VpLoad(v, sz);
+};
+static VP_HANDLE VpcExponent(VP_HANDLE v,VP_HANDLE va) {
+	char sz[32];
+	int n = VpExponent(va);
+	sprintf(sz, "%d", n);
+	return VpLoad(v, sz);
+};
+static VP_HANDLE VpcIterations(VP_HANDLE v) {
+	char sz[32];
+	int n = VpGetIterationCount();
+	sprintf(sz, "%d", n);
+	return VpLoad(v, sz);
+};
 
 FUNCTION  gFunctions[] = {
+	{"abs",VpcAbs,1},
 	{"sin",VpcSin,1},
 	{"cos",VpcCos,1},
 	{"atan",VpcAtn,1 },
 	{"exp",VpcExp,1 },
 	{"pi", VpcPI,0 },
+	{"iterations", VpcIterations,0 },
 	{"ln", VpcLog,1},
 	{"int", VpcInt,1},
 	{"frac", VpcFrac,1},
 	{"sqrt", VpcSqrt,1},
 	{"trim", VpcTrim,2},
 	{"round", VpcRound,-2},
-	{"power", VpcPower,2}
+	{"power", VpcPower,2},
+	{"digits", VpcDigits,1},
+	{"exponent", VpcExponent,1}
 };
 int       gmFunctions = sizeof(gFunctions)/ sizeof(gFunctions[0]);
 
 VP_HANDLE gVariables[27];
 int       gmVariables = sizeof(gVariables) / sizeof(gVariables[0]);
 
-static VP_HANDLE gWorkVariables[512];
-static int       gmWorkVariables = sizeof(gWorkVariables) / sizeof(gWorkVariables[0]);
+VP_HANDLE gWorkVariables[512];
+int       gmWorkVariables = sizeof(gWorkVariables) / sizeof(gWorkVariables[0]);
 static int       gcWorkVariables = 0;
 
 void InitCalculator()
@@ -99,7 +122,7 @@ static int CreateWorkVariable(VP_HANDLE *pv,int mx)
 	VP_HANDLE wv;
 	*pv = 0;
 	if (gcWorkVariables >= gmWorkVariables) {
-		gcError++; fprintf(stderr, "SYSTEM_ERROR: too many working variables are required(%d)\n", gmWorkVariables);
+		ERROR(fprintf(stderr, "SYSTEM_ERROR: too many working variables are required(%d)\n", gmWorkVariables));
 		return 0;
 	}
 	if (mx < gmPrecision+10) mx = gmPrecision+10;
@@ -112,20 +135,20 @@ static int CreateWorkVariable(VP_HANDLE *pv,int mx)
 		}
 	}
 	if (VpIsInvalid(gWorkVariables[gcWorkVariables])) {
-		gcError++; fprintf(stderr, "SYSTEM_ERROR: unable to allocate working variable.\n");
+		ERROR(fprintf(stderr, "SYSTEM_ERROR: unable to allocate working variable.\n"));
 		return 0;
 	}
 	*pv = gWorkVariables[gcWorkVariables++];
 	return -gcWorkVariables;
 }
 
-static int EnsureVariable(int iv, int mx)
+int EnsureVariable(int iv, int mx)
 {
 	VP_HANDLE v;
 	int mxv;
 
 	if (iv<0 && ((-iv) - 1) >= gmWorkVariables) {
-		gcError++; fprintf(stderr, "SYSTEM_ERROR: invalid variable is to be processed(%d)\n", iv);
+		ERROR(fprintf(stderr, "SYSTEM_ERROR: invalid variable is to be processed(%d)\n", iv));
 		return 0;
 	}
 
@@ -139,20 +162,19 @@ static int EnsureVariable(int iv, int mx)
 		}
 	}
 	if (VpIsInvalid(v)) {
-		gcError++; fprintf(stderr, "SYSTEM_ERROR: mamory allocation failed(size=%d).\n", mx);
+		ERROR(fprintf(stderr, "SYSTEM_ERROR: mamory allocation failed(size=%d).\n", mx));
 		return 0;
 	}
 	gVariables[iv] = v;
 	return 1;
 }
 
-static int CreateNumericWorkVariable(UCHAR *szN)
+int CreateNumericWorkVariable(UCHAR *szN)
 {
 	VP_HANDLE vw;
 
 	if (gcWorkVariables >= gmWorkVariables) {
-		gcError++; fprintf(stderr, "SYSTEM_ERROR: too many working variables(%d),\n", gmWorkVariables);
-		return 0;
+		FATAL(fprintf(stderr, "SYSTEM_ERROR: too many working variables(%d),\n", gmWorkVariables));
 	}
 
 	vw = gWorkVariables[gcWorkVariables];
@@ -176,7 +198,7 @@ static int CreateNumericWorkVariable(UCHAR *szN)
 		}
 	}
 	if (VpIsInvalid(vw)) {
-		gcError++; fprintf(stderr,"SYSTEM_ERROR: failed to allocate working variable(%s).\n",szN);
+		FATAL(fprintf(stderr, "SYSTEM_ERROR: unable to create working variable.\n"));
 		return 0;
 	}
 	gWorkVariables[gcWorkVariables++] = vw;
@@ -200,7 +222,7 @@ static int Negate(int ixp)
 	pw = GetPolishVariable(ixp-1);
 	
 	if (VpIsInvalid(VpAsgn(w, pw, -1))) {
-		gcError++; fprintf(stderr, "SYSTEM_ERROR: negation failed.\n");
+		ERROR(fprintf(stderr, "SYSTEM_ERROR: negation failed.\n"));
 		return -1;
 	}
 	PolishReplace(ixw,ixp-1,ixp);
@@ -254,7 +276,7 @@ static int DoBinaryOperation(int iStatement,int ixp, int token)
 		ixw = GetPolish(ixp - 1);
 		break;
 	default:
-		gcError++; fprintf(stderr, "SYSTEM_ERROR: invalid binary operator(%c).\n", ch);
+		ERROR(fprintf(stderr, "SYSTEM_ERROR: invalid binary operator(%c).\n", ch));
 		return -1;
 	}
 	PolishReplace(ixw, ixp - 2, ixp);
@@ -276,7 +298,7 @@ int ToIntFromSz(int* pi, UCHAR* sz)
 	while(ch=*sz++) {
 		if (ch == '\'' || ch == '\"') {
 			if (*sz != '\0') {
-				gcError++; fprintf(stderr, "Error: Integer character(not digit).\n");
+				ERROR(fprintf(stderr, "Error: Integer character(not digit).\n"));
 				return 0;
 			}
 			ch = *sz++;
@@ -289,7 +311,7 @@ int ToIntFromSz(int* pi, UCHAR* sz)
 		++i;
 		ch -= '0';
 		if ((ch!=0 && dot!=0) || ( ch < 0 || ch>9)) {
-			gcError++; fprintf(stderr, "Error: Integer value required.\n");
+			ERROR(fprintf(stderr, "Error: Integer value required.\n"));
 			return 0;
 		}
 		s = s * 10 + ch;
@@ -303,7 +325,7 @@ static int ToInteger(int *pi,VP_HANDLE v) {
 	static int ni = sizeof(szInt) / sizeof(szInt[0]);
 	int         s = VpStringLengthF(v);
 	if (s >= ni) {
-		gcError++; fprintf(stderr, "Error: illegal argument(too big integer value).\n");
+		ERROR(fprintf(stderr, "Error: illegal argument(too big integer value).\n"));
 		return -1;
 	}
 	VpToStringF(v, szInt);
@@ -325,8 +347,14 @@ int DoFunction(int ixp,int iSatement, int token)
 	}
 	else if (na == 1) {
 		VP_HANDLE v;
-		int ixw = CreateWorkVariable(&v, gmPrecision);
-		VP_HANDLE va = GetPolishVariable(ixp - 1);
+		int       ixw = CreateWorkVariable(&v, gmPrecision);
+		VP_HANDLE va  = GetPolishVariable(ixp - 1);
+		if (f == VpcAbs) {
+			VpAsgn(v, va, 1);
+			((VP_HANDLE(*)(VP_HANDLE))f)(v);
+			PolishReplace(ixw, ixp - 1, ixp);
+			return ixp - 1;
+		}
 		((VP_HANDLE(*)(VP_HANDLE,VP_HANDLE))f)(v,va);
 		PolishReplace(ixw, ixp-1, ixp);
 		return ixp-1;
@@ -355,7 +383,7 @@ int DoFunction(int ixp,int iSatement, int token)
 		PolishReplace(ixw, ixp - 2, ixp);
 		return ixp - 2;
 	}else {
-		gcError++; fprintf(stderr, "Error:invalid number of arguments(%d).\n", na);
+		ERROR(fprintf(stderr, "Error:invalid number of arguments(%d).\n", na));
 	}
 	return  - 1;
 }
@@ -401,7 +429,7 @@ void ComputePolish(int iStatement)
 			if (ip < 0) return;
 			break;
 		default:
-			gcError++; fprintf(stderr, "SYSTEM_ERROR: invalid identifier %d(in reverse polish)\n", token);
+			ERROR(fprintf(stderr, "SYSTEM_ERROR: invalid identifier %d(in reverse polish)\n", token));
 			return;
 		}
 		++ip;
