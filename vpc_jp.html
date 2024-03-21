@@ -1,0 +1,381 @@
+﻿<!DOCTYPE html "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="jp">
+<head>
+<title>VPC: Variable precision calculator</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<meta name="keywords" content="VPC: Variable precision calculator">
+<meta name="description" content="VPC: Variable precision calculator">
+<style type=text/css>
+body {color: #3f0f0f; background: #efefef; margin-left: 4em; margin-right: 4em;}
+h1 {color: #f0f0f0; background-color: #30A0FF; border-color: #FF00FF; width: 100%;
+    border-style: solid; border-top-width: 0.1em; border-bottom-width: 0.1em; border-right: none;
+    border-left: none;   padding: 0.1em; font-weight: bold; font-size: 160%;text-align: center;
+}
+h2 {color: #00007f; background-color: #e7e7ff; border-color: #949494;
+    width: 100%; border-style: solid;
+    border-left: 0.6em solid #30A0FF;
+    border-right: none; border-top-width: 0.1em;
+    border-bottom-width: 0.1em;  padding: 0.1em;  font-weight: bold;  font-size: 110%;
+}
+h3 {color: #00007f; padding: 0.2em; font-size: 110%;
+    border-style: solid;
+    border-left: none; border-right: none; border-top-width: 0.05em;
+    border-bottom-width: 0.05em; 
+}
+h4, h5 { color: #000000; padding: 0.2em; font-size: 100%;}
+table { 
+    margin-top: 1em; margin-bottom: 1em; margin-left: 2em; margin-right: 1em;
+    background-color: #000000;
+    border-spacing: 1px;
+}
+th {background: #e7e7ff;}
+td {background: #f3f7ff;}
+dt {margin-top: 0.2em;}
+caption { color: #7f0000;font-weight: bold;}
+pre { margin-top: 1px;}
+code { margin-top: 1px; color: #0000ff;}
+kbd { color: #ffffbf;font-weight: bold;}
+blockquote { margin-left: 15px;margin-top: 1px;}
+.console {background: #8f8f8f;color: #ffffff}
+</style>
+</head>
+
+<body>
+<h1>VPC: Variable precision calculator</h1>
+<div align="right">
+このソフトウェアは<a href="https://www.gnu.org/licenses/lgpl-3.0.en.html" target="_new">GNU Lesser General Public License</a>の規定に従って自由に配布することができます。<br/>
+<a href="https://github.com/ShigeoKobayashi/bigdecimal/" target="_new">全てのソースプログラム等は GitHub からダウンロードできます。</a><br/>
+Copylight (c) 2024 Shigeo Kobayashi. All rights reserved.<br/>
+<a href="./vpc_en.html">English</a>
+</div>
+<hr/>
+Windows 用実行ファイル(32-bit:vpc.exe と bigdecimal.dll) はここから<a href="http://www.tinyforest.jp/oss/bigdecimal.zip">ダウンロード</a>できます。二つのファイルをどこか同じフォルダにコピーしてから、エクスプローラー等から vpc.exe をダブルクリックすれば直ぐに利用できます。
+
+
+<h3>
+<a href="#basic">基本情報</a>  
+<a href="#functions">関数一覧</a>  
+<a href="#round_methods">丸め操作</a>  
+<a href="#rounds">丸め操作の種類</a>  
+<a href="#repeat">繰返し計算</a>  
+<a href="#setting">動作環境設定</a>  
+<a href="#IO">入出力</a>  
+</h3>
+VPC(Variable precision calculator) は<a href="http://www.tinyforest.jp/oss/bigdecimal.html" target="_new">Bigdecimal</a>を利用した任意精度のプログラマブル関数電卓です。搭載メモリー等が許す範囲で計算桁数は任意に指定できます。
+例えば、円周率を２００桁（標準は100桁）計算する場合、以下のようにできます。
+<pre class=console>
+ c:\Test>vpc
+VPC(Variable Precision Calculator V2) of Bigdecimal(V11)
+  Copyright (c) 2024 by Shigeo Kobayashi. Allrights reserved.
+
+Enter command
+>a = pi();?a
+ a =  0.3141592653 5897932384 6264338327 9502884197 1693993751 0582097494 4592307816 4062862089 9862803482 5342117068 E1
+
+>$precision = 200
+>b = pi()
+>?b
+ b =  0.3141592653 5897932384 6264338327 9502884197 1693993751 0582097494 4592307816 4062862089 9862803482 5342117067 9821480865 1328230664 7093844609 5505822317 2535940812 8481117450 2841027019 3852110555 9644622948 9549303819 6E1
+>
+</pre>
+<hr/>
+詳細は後述するとして a と b は変数。a = pi() は a に関数 pi() で円周率を計算した後に値を代入します。
+計算桁数は初期設定の 100桁 です。; は次の処理に移行する「区切り」です。そして ?a で a の値を表示しています。
+基本的には 100桁 以上の値が表示されます。'...68E1' は '...68*10<sup>1</sup>' を意味します。
+次に <a href="#setting">$precision</a> = 200 で、計算桁数を 200桁 に設定して同じ計算をして、変数 b に代入しています。
+例えば $precision = 1000 とすれば、1000桁（以上）計算することになります。
+同様に、 + - * / 等の四則演算も <a href="#setting">$precision</a> の設定に応じて、要求された桁数まで計算されます。
+<br/>
+
+<a name="basic"></a>
+<H2>基本情報</H2>
+<ol>
+<li><b>変数と関数による四則演算：</b><br/>
+VPC には予め <b>a,b,c,...,x,y,z の<b>変数</b>２６個</b>（のみ）が用意されています。
+さらに <a href="#functions">sin や cos 等の関数</a>も使用できます。
+変数や関数を利用して自由に四則演算が可能です。
+計算結果は必ず変数に代入（格納）する必要があります。途中計算は可能な限り正確（結果を格納できる桁数が自動的に確保された後）に実行されます。そして、最終的に左辺変数に代入するときに（$precision の値より計算桁数が大きかった場合に）、<a href="#setting">$round</a> 指定に従った丸め操作が実行されます。計算結果は ? で表示することが出来ます。
+
+<pre class=console>
+Enter command
+>a=pi()/4;b= power(sin(a),2) + power(cos(a),2);?a;?b
+ a =  0.7853981633 9744830961 5660845819 8757210492 9234984377 6455243736 1480769541 0157155224 9657008706 3355292669 9554E0
+ b =  0.1E1
+</pre>
+</li>
+
+<li><b>環境設定：</b><br/>
+変数以外に $precision（計算桁数指定）や $round（丸め操作指定）等、計算全体や表示に関係する設定があります。
+変数と同様に $precision = 200 のように値を設定して、 ?$precision として内容を表示することが出来ます。
+ただし、代入と表示だけで、直接計算のなかで使用することはできません。
+ $precision のように環境設定変数は必ず $ が先頭に付きます。
+</li>
+<li><b>値の表示</b><br/>
+変数や環境設定の値は ? で表示することができます。ただし、? の後ろに計算式（や関数）を記述することはできません。
+<li><b>処理単位：</b><br/>
+一行を ; で区切ることで複数の計算（表示）を実行できます。
+a = pi();?a のように、まず a = pi() を実行してから、?a で結果を表示できます。
+これは
+<blockquote>
+  a = pi()<br/>
+  ?a
+</blockquote>
+と同じです。ただし、a = pi()  ?a  と ; を省略した書き方はエラーとなります。
+</li>
+<li><b>引用符( 'または " ):</b><br/>
+空白等の特殊な文字を含む文字列は引用符( 'または " )で囲みます。例えば長い数値はスペースやカンマ ( ,) で区切ると読み易くなります。そのような場合は、数値を ' または " で囲むことが出来ます。例えば '1,000' と記述できます。
+逆に引用符を付けないと 1,000 では数値 1 と 000 に分離した形と見なされエラーになります。文字列の中に ' がある場合は " で囲みます。逆に " がある場合は ' で囲みます。' と " を同時に含む文字列は使用できません。<br/>
+<b>例：</b><blockquote>
+a='pi'() は正しいけど、a=' pi  '() はエラーです(piは関数名)。<br/>
+a=1000 は正しい。 a= " -   10.0 1" も a=-10.01 と見なされ、正しい記述です（文字列で与えられた数値表現中のスペース、または<a href="#setting">$format</a>で指定された文字、は無視されます）。
+</<blockquote>
+<li><b>繰返し計算</b><br/>
+<a href="#repeat">repeat、while の繰り返し</a>（繰り返し対象は行末まで）計算が可能です。
+</li>
+<li><b>入出力：</b><br/>
+write ".\result.txt" のようにして、現状の全ての状態をファイル".\result.txt"（任意）に出力して保存できます。
+同様に read ".\result.txt"  で全ての状態を回復できます。
+</li>
+<li><b>コメント：</b><br/>
+空白のかける場所に # を書くと、以降の行末までコメントと見なされ全て無視されます。
+</ol>
+
+<a name="functions"></a>
+<H2>関数一覧</H2>
+iterations() を除く全ての関数は $precision で指定された桁数（以上）まで計算します。
+<table width="100%">
+<tr><th>関数名</th><th>説明</th><th>使用例</th><th>備考</th></tr>
+<tr><td>atan(a)</td><td>逆正接 (arctangent)の計算<br/>
+ c = tan<sup>-1</sup>(a)</td><td>
+
+&gt;a=0.5;c=atan(a);?a<br/>
+ a =  0.8414709848 0789650665 ... 5435E0
+      </td><td>|a|&lt;=1 </td></tr>
+<tr><td>sin(a)/cos(a)</td><td>三角関数の計算</td><td>
+&gt;a=sin(1);?a;b=cos(1);?b;c=a*a+b*b;?c<br/>
+ a =  0.8414709848 0789650665 ... 5435E0<br/>
+ b =  0.5403023058 6813971740 ... 4357E0<br/>
+ c =  0.1E1
+</td><td>
+与える引数はラジアン（radian）。度（degree）ではありません。<br/>
+引数の値はなるべく小さくする必要があります（引数 a が3.14... より大きい場合、a=a-3.14.. 等と調節すること）。
+
+</td>
+<tr><td>exp(a)</td><td>ネイピア数(自然対数の底 e<sup>a</sup>)のべき乗を計算します。
+</td><td>
+&gt;a=exp(1);?a<br/>
+ a =  0.2718281828 4590452353 ... 4E1
+ </td><td>    </td></tr>
+<tr><td>ln(a)</td><td>ネイピア数 e を底とするの自然対数の計算</td><td>
+&gt;a=ln(0.5);?a;b=exp(a);?b<br/>
+ a = -0.6931471805 5994530941 723... 42E0<br/>
+ b =  0.5E0
+</td><td> 0 < a <= 2  </td></tr>
+<tr><td>pi()</td><td>円周率（π）の計算</td><td>
+&gt;a=pi();?a<br/>
+ a =  0.3141592653 5897932384 ...068 E1
+</td><td>() が無いとエラー    </td></tr>
+<tr><td>sqrt(a)</td><td>平方根の計算<br/>
+a=b<sup>1/2</sup></td><td>
+&gt;a=sqrt(5);?a<br/>
+ a =  0.2236067977 4997896964 ...275 E1
+</td><td> a &gt;= 0    </td></tr>
+<tr><td>iterations() </td><td>直前の繰返し計算の回数 </td><td>
+&gt;a=sqrt(2);b=iterations();?a;?b<br/>
+ a =  0.1414213562 3730950488 0168872420 ...7E1<br/>
+ b =  0.2E2
+      </td><td>iterations() &lt;= <a href="#setting">$max_iterations</a> </td></tr>
+</table>
+注：
+<ul>
+<li>pi()は マチン（Machin）の公式、sqrt() はニュートン（Newton）法を用いて比較的安定的に計算できます。</li>
+<li>それ以外はいわゆる級数展開法を用いています（ある意味実験的側面が強い）。引数の値次第では、所定の計算回数では収束しない場合があります。sin()やcos()は周期関数ですので、事前に引数を調整しないといけない場合があります。</li>
+</ul>
+<br/>
+<br/>
+
+<table width="100%">
+<tr><th>関数名</th><th>説明</th><th>使用例</th><th>制限</th></tr>
+<tr><td>abs(a) </td><td>絶対値の計算</td><td>
+&gt;a=-1;b=abs(a);?b<br/>
+ b =  0.1E1
+</td><td> </td></tr>
+<tr><td>power(a,n)</td><td>べき乗の計算<br/>
+b=power(a,n) =&gt; b=a<sup>n</sup></td><td>
+&gt;b=power(2,-2);?b<br/>
+ b =  0.25E0
+</td><td>n は正または負の<b>整数</b>でなければならない。<br/>
+ b = power(2,0.5) はエラー。
+    </td></tr>
+<tr><td>int(a)</td><td>整数部分の取り出し</td><td>
+&gt;a=(1/3)*100;b=int(a);?b<br/>
+ b =  0.33E2
+ </td><td>    </td></tr>
+<tr><td>frac(a) </td><td>少数部分の取り出し</td><td>
+&gt;a=(1/3)*100;b=frac(a);?b<br/>
+ b =  0.3333333333 3333333333 ... 33 E0
+     </td><td>    </td></tr>
+<tr><td>digits(a)</td><td>有効桁数</td><td>
+&gt;a=(1/3)*2;?a;b=digits(a);?b<br/>
+ a =  0.6666666666 6666666666 ... 666 6667E0<br/>
+ b =  0.104E3
+      </td><td>    </td></tr>
+<tr><td>exponent(a)</td><td>指数部分の取得<br>
+a=0.xxxx*10<sup>n</sup> の n    </td><td>
+
+&gt;a=power(10,3);?a;b=exponent(a);?b<br/>
+ a =  0.1E4<br/>
+ b =  0.4E1<br/>
+</td><td>    </td></tr>
+</table>
+
+<a name="round_methods"></a>
+<h2>丸め操作</h2>
+丸め操作（初期設定は四捨五入）は計算結果を最終的に変数に代入する際に、計算結果が変数の保持できる数字の最大桁数（$precision）より長い時に内部的に実行されます。それ以外に、以下の２つの関数を用いて丸め位置を指定して実行することが出来ます。
+どちらでも丸め操作は <a href="#rounds">$round</a> の指定に従った方法で実行されます。
+<table width="100%">
+<tr><th>設定名</th><th>説明</th><th>使用例</th></tr>
+<tr><td>trim(a,n)</td><td>trim(a,n) は a の左端から数えて n+1 桁目を $round の指定に従って丸めて、全体を最大 n 桁の数値とします。</td><td>
+>$format=F;a=1234.5678;b=trim(a,4);c=round(a,1);d=round(a,-1);e=round(a,0);?a;?b;?c;?d;?e # 結果は下段の通り
+
+      </td></tr>
+<tr><td>round(a,i) </td><td>
+round(a,i) は a の小数点からの相対位置で丸め操作を実行します。
+もし <b>i&gt;=0</b>、なら小数点の位置から右の (i+1)番目の数字が $round の指定に従って丸められます。
+従って、小数点から右の数字は最大で i 個となります。
+もし <b>i&lt;0</b> なら、小数点位置から左の i 番目の数字が $round の指定に従って丸められます。結果として、小数点の左に最小でも i 個のゼロが並ぶことになります。
+
+    </td><td> 
+ a =  1234.5678<br/>
+ b =  1235<br/>
+ c =  1234.6<br/>
+ d =  1230<br/>
+ e =  1235
+ </td></tr>
+</table>
+
+<a name="rounds"></a>
+<b>丸め操作の種類:</b><br/>
+$round に設定（代入）できる値の一覧。
+<table>
+<tr><th>丸め操作の値</th><th>意味</th><th>使用例</th></tr>
+      <TR><TD>up</TD><TD>ゼロから離れる方向に切り上げる。</TD><td>
+>$round=up;a=-1/3;b=round(a,0);?b<br/>
+ b = -0.1E1
+</td></TR>
+      <TR><TD>down</TD><TD>ゼロに近づく方向に切り捨てる。</TD><td>
+>$round=down;a=-1/3;b=round(a,0);?b<br/>
+ b = -0.0
+</td></TR>
+      <TR><TD>half_up</TD><TD>ゼロから離れる方向に四捨五入。(初期設定).</TD><td>
+>a=-2/3;b=round(a,3);?b<br/>
+ b = -0.667E0
+</td></TR>
+      <TR><TD>half_down</TD><TD>ゼロから離れる方向に五捨六入。</TD><td>
+>$round=half_down;a=round(5.5555,3);?a<br/>
+ a =  0.5555E1
+</td></TR>
+      <TR><TD>ceil</TD><TD>正の無限大方向に切り上げ。</TD><td>
+
+>$round=ceil;a=trim(1.2345,3);?a;b=trim(-1.2345,3);?b<br/>
+ a =  0.124E1<br/>
+ b = -0.123E1
+</td></TR>
+      <TR><TD>floor</TD><TD>負の無限大方向に切り下げ。</TD><td>
+>$round=floor;a=trim(1.2345,3);?a;b=trim(-1.2345,3);?b<br/>
+ a =  0.123E1<br/>
+ b = -0.124E1
+
+</td></TR>
+      <TR><TD>half_even</TD><TD>"Banker's rounding" と呼ばれる丸め方法で、切り上げ・切り下げの結果として上位末尾の数字が偶数になるように丸められます。 </td><td>
+>$round=half_even<br/>
+>a=trim(2.125,3);?a<br/>
+ a =  0.212E1<br/>
+>a=trim(2.135,3);?a<br/>
+ a =  0.214E1<br/>
+</td></tr>
+</table>
+
+<a name="repeat"></a>
+<h2>繰返し計算</h2>
+<table width="100%">
+<tr><th>繰返し計算</th><th>説明</th><th>使用例</th></tr>
+<tr><td>repeat n;</td><td>repeat 以降・行末までの（複数）実行文を n 回繰り返し実行します。n は整数値でのみ指定可。 </td><td><b>10の階乗の計算(10!)</b><br/>
+>n=0;s=1;repeat 10;n=n+1;s=s*n<br/>
+>?s<br/>
+ s =  0.36288E7
+      </td></tr>
+<tr><td>while a op b;</td><td>while の次の条件式 a op b が成立すれば（成立している間）以降の行末までを繰り返し実行します。 a または b は変数か数値（関数や数式は指定できません）です。ただ、a と b 共に数値を指定することはできません。 op は以下のどれかです。
+<ul>
+<li>a <b>&gt;</b> b   ..... a が b より大きい場合 </li>
+<li>a <b>&lt;</b> b   ..... a が b より小さい場合 </li>
+<li>a <b>&gt;=</b> b ... a が b より大きいか等しい場合 </li>
+<li>a <b>&lt;=</b> b .... a が b より小さいか等しい場合 </li>
+<li>a <b>==</b> b  ... a と b が等しい場合</li>
+<li>a <b>!=</b> b .... a と b が異なる場合</li>
+</ul>
+
+ </td><td>
+<b>10の階乗の計算(10!)</b><br/>
+>n=10;s=1;while n>0;s=s*n;n=n-1<br/>
+>?s<br/>
+ s =  0.36288E7
+ </td></tr>
+</table>
+注：
+<ul>
+<li> repeat や while の後ろ（行末まで）に repeat や while があるとエラーになります（入れ子にできません）。</li>
+<li> repeat や while の後ろ（行末まで）で何らかのエラーがあれば繰返しは中断されます。</li>
+</ul>
+<br/>
+<br/>
+
+<a name="setting"></a>
+<h2>動作環境設定</h2>
+<table width="100%">
+<tr><th>設定名</th><th>説明</th><th>使用例</th></tr>
+<tr><td>$format </td><td>
+数値の出力形式を指定します。初期値は以下の通り<br>
+>?$format<br>
+$format = '10*E q' # 初期値<br/>
+<ul>
+<li>'10'：任意の数値。長い数値列を指定した数で区切ります。</li>
+<li>'*' ：'*'、'+'、または '-' を指定します。符号等、先頭表示を制御します。意味は以下の通りです。
+  <ul>
+   <li>  '*' ... 正の数値は先頭にスペース ' ' が付きます（初期値）。負の値の数値は '-' が付きます。</li>
+   <li>  '-' ... 正の数値はスペースは無しで数字が出力されます（符号無し）。負の値の数値は '-' が付きます。</li>
+   <li>  '+' ... 正の数値は常に先頭に '+' が付きます。負の値の数値は '-' が付きます。</li>
+  </ul><br/>
+<li>'E' ：'E' または 'F'。数値の出力形式の指定。'E'を指定すると 0.123...E3 のような形になります E3 は 10<sup>3</sup> を意味します。</li>
+<li>' ' ：' ' または ','。長い数値列を区切る文字で空白かカンマを指定します。</li>
+<li>'q' ：'q' または 'Q'。'Q' なら数値を ' で囲みます。'q' なら囲みません。</li>
+<li>指定は左から順に処理されます。同じ指定が複数回あったときは後半の指定が有効になります。</li>
+</ul>
+    </td><td>
+初期値： '10*E q' <p/><br/>
+実行例：<br/>
+>a=(1/3)*1000;?a<br/>
+ a =  0.3333333333 3333333333 ... 333 333E3<br/>
+>$format='QF,';?a<br/>
+ a = '333.3333333333,33333...333,3333333333'
+      </td></tr>
+<tr><td>$max_iterations</td><td>繰返し計算の最大繰返し数。 </td><td> 初期値： 10000     </td></tr>
+<tr><td>$precision   </td><td>変数 a,b,...z の最大桁数を指定します。例えば a=b*c+d のような計算は、b*c+d の桁数は誤差が出ないように（1/3のような割り算は特別）最大限の計算桁数が確保されます。そして、最終的に左辺変数に計算結果が代入されるときに右辺の桁数が $precision より大きい時には、以下の $round 指定に従って $precision桁に丸められます。 </td><td> 初期値： 100 </td></tr>
+<tr><td>$round</td><td><a href="#rounds">丸め操作の指定</a>をします。</td><td> 初期値： half_up（四捨五入） </td></tr>
+<tr><td>$title</td><td>任意の文字列を設定できます。</td><td>初期値： ""      </td></tr>
+<tr><td>$a,$b,...$y,$z </td><td>こちらも任意の文字列を指定できます。各変数に関連付けたコメントを記入すれば便利かもしれません。 </td><td> 初期値： "" </td></tr>
+</table>
+
+<a name="IO"></a>
+<h2>入出力</h2>
+<table width="100%">
+<tr><th>I/O関係</th><th>説明</th></tr>
+<tr><td>read 'ファイルパス'</td><td>実行ステートメントを指定されたファイルから読み込み実行します。とくに、 write コマンドで出力されたファイルを読み込めば、write コマンド実行時の状態になります。</td></tr>
+<tr><td>write 'ファイルパス'</td><td>現状の環境設定と全ての変数の値を指定されたファイルにテキスト形式の代入文で書き込みます。後に read コマンドに同じファイルを指定すれば状態を復元することができます。</td></tr>
+</table>
+
+<div align="right">
+Shigeo Kobayashi 2024-3-15
+</div>
+<hr/>
+</body>
+</html>

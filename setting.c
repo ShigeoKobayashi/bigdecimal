@@ -54,7 +54,15 @@ void PrintPrecision(FILE *f)
 
 void PrintRound(FILE *f)
 {
-	fprintf(f,"$round = '%s'\n", gRMode[gRoundMode].name);
+	int i;
+	for (i = 0; i < gmRMode; ++i) {
+		if (gRMode[i].value == gRoundMode) {
+			fprintf(f, "$round = '%s'\n", gRMode[i].name);
+			return;
+		}
+	}
+	ERROR(fprintf(stderr,"SYSTE_ERROR:undefine current round mode(%d),reset!\n",gRoundMode));
+	gRoundMode = VpGetRoundMode();
 }
 
 void PrintIterations(FILE *f)
@@ -146,7 +154,7 @@ void DoRound(int iStatement)
 	int i;
 
 	for (i = 0; i < gmRMode; ++i) {
-		if (IsToken(gRMode[i].name, iStatement, 2)) { VpSetRoundMode(gRMode[i].value); return; }
+		if (IsToken(gRMode[i].name, iStatement, 2)) { gRoundMode = gRMode[i].value; VpSetRoundMode(gRoundMode); return; }
 	}
 	ERROR(fprintf(stderr, "Error: undefined round mode(%s)", TokenPTR(iStatement,2)));
 }
@@ -174,9 +182,9 @@ void DoFormat(int iStatement)
 			nd = 0;
 			while (i < nch) {
 				nd = nd * 10 + id;
-				ch = TokenChar(2, iStatement, i+1);
+				ch = TokenChar(iStatement, 2, i+1);
 				id = ch - '0';
-				if (id < 0 == id > 9) break;
+				if (id < 0 || id > 9) break;
 				++i;
 			}
 			gnCount = nd;

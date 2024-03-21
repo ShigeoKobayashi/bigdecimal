@@ -1,0 +1,404 @@
+﻿<!DOCTYPE html "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+<title>VPC: Variable precision calculator</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<meta name="keywords" content="VPC: Variable precision calculator">
+<meta name="description" content="VPC: Variable precision calculator">
+<style type=text/css>
+body {color: #3f0f0f; background: #efefef; margin-left: 4em; margin-right: 4em;}
+h1 {color: #f0f0f0; background-color: #30A0FF; border-color: #FF00FF; width: 100%;
+    border-style: solid; border-top-width: 0.1em; border-bottom-width: 0.1em; border-right: none;
+    border-left: none;   padding: 0.1em; font-weight: bold; font-size: 160%;text-align: center;
+}
+h2 {color: #00007f; background-color: #e7e7ff; border-color: #949494;
+    width: 100%; border-style: solid;
+    border-left: 0.6em solid #30A0FF;
+    border-right: none; border-top-width: 0.1em;
+    border-bottom-width: 0.1em;  padding: 0.1em;  font-weight: bold;  font-size: 110%;
+}
+h3 {color: #00007f; padding: 0.2em; font-size: 110%;
+    border-style: solid;
+    border-left: none; border-right: none; border-top-width: 0.05em;
+    border-bottom-width: 0.05em; 
+}
+h4, h5 { color: #000000; padding: 0.2em; font-size: 100%;}
+table { 
+    margin-top: 1em; margin-bottom: 1em; margin-left: 2em; margin-right: 1em;
+    background-color: #000000;
+    border-spacing: 1px;
+}
+th {background: #e7e7ff;}
+td {background: #f3f7ff;}
+dt {margin-top: 0.2em;}
+caption { color: #7f0000;font-weight: bold;}
+pre { margin-top: 1px;}
+code { margin-top: 1px; color: #0000ff;}
+kbd { color: #ffffbf;font-weight: bold;}
+blockquote { margin-left: 15px;margin-top: 1px;}
+.console {background: #8f8f8f;color: #ffffff}
+</style>
+</head>
+
+<body>
+<h1>VPC: Variable precision calculator</h1>
+<div align="right">
+This software can be redistributed under <a href="https://www.gnu.org/licenses/lgpl-3.0.en.html" target="_new">GNU Lesser General Public License</a>.<br/>
+<a href="https://github.com/ShigeoKobayashi/bigdecimal/" target="_new">Every source code of this software can be obtained through GitHub.</a><br/>
+Copylight (c) 2024 Shigeo Kobayashi. All rights reserved.<br/>
+<a href="./vpc_jp.html">Japanese</a>
+<br/>
+</div>
+<hr/>
+Windows binary files(<a href="http://www.tinyforest.jp/oss/bigdecimal.zip">32-bit:vpc.exe and bigdecimal.dll</a>) can be downloaded. Only 2 files are necessary. Copy 2 files to any folder,and just run vpc.exe.
+
+<h3>
+<a href="#basic">Basics</a>  
+<a href="#functions">Functions</a>  
+<a href="#round_methods">Rounding</a>  
+<a href="#rounds">Rounding methods</a>  
+<a href="#repeat">Iterative calculations</a>  
+<a href="#setting">Environment settings</a>  
+<a href="#IO">Input/Outout</a>  
+</h3>
+VPC(Variable precision calculator)is a simple but a programmable calculator. Using <a href="http://www.tinyforest.jp/oss/bigdecimal.html" target="_new">Bigdecimal</a>,VPC can offer any number of effective digits you want as far as your computer memories installed allows.
+Following example computes the ratio of the circumference of a circle to its diameter(π).
+You can obtain 100 digits in default. But you can specify '$precision=200' explained later to get 200 effective digits.
+<pre class=console>
+ c:\Test>vpc
+VPC(Variable Precision Calculator V2) of Bigdecimal(V11)
+  Copyright (c) 2024 by Shigeo Kobayashi. Allrights reserved.
+
+Enter command
+>a = pi();?a
+ a =  0.3141592653 5897932384 6264338327 9502884197 1693993751 0582097494 4592307816 4062862089 9862803482 5342117068 E1
+
+>$precision = 200
+>b = pi()
+>?b
+ b =  0.3141592653 5897932384 6264338327 9502884197 1693993751 0582097494 4592307816 4062862089 9862803482 5342117067 9821480865 1328230664 7093844609 5505822317 2535940812 8481117450 2841027019 3852110555 9644622948 9549303819 6E1
+>
+</pre>
+<hr/>
+'a' and 'b' are predefined variables and pi() is the function to compute π(detailed explanations given later). 
+a=pi() means,π is computed by the function pi() and the computation result(π) is stored to the variable a.
+In default,100 digits of π are computed,then y <a href="#setting">'$precision</a> = 200' means 200 digits of π are computed. If you specify $precision = 1000,then 1000 digits can be obtained of course.
+Also,the setting <a href="#setting">$precision</a> affects arithmetic operations + - * /.
+';' is the statement delimiter which enables you to enter more than one statements in a line. 
+To print value of variable,you can use '?' as ?a.
+'...68E1' means  '...68*10<sup>1</sup>'.
+
+<a name="basic"></a>
+<H2>Basics</H2>
+<ol>
+<li><b>Arithmetics using variables and functions:</b><br/>
+In VPC,26 variables,<b>a,b,c,...,x,y,z</b>, are predefined(no more variable can be created).
+Arithmetic calculations can be done by using variables and <a href="#functions">functions</a>(sin,cos,...).
+Any computation result must be stored to any variable. And any variable's value can be printed by the operator ?,as ?a. Intermediate value of computation can be longer than the digits specified by $precision to keep exact result. The value will be rounded according to the specification of <a href="#setting">$round</a> when it is stored to any variable. 
+
+<pre class=console>
+Enter command
+>a=pi()/4;b= power(sin(a),2) + power(cos(a),2);?a;?b
+ a =  0.7853981633 9744830961 5660845819 8757210492 9234984377 6455243736 1480769541 0157155224 9657008706 3355292669 9554E0
+ b =  0.1E1
+</pre>
+</li>
+
+<li><b>Environment settings:</b><br/>
+Environment settings are set at any time and affect through computations.
+$precision affects total digits held by any variable,$round affects all rounding operations.
+? can also be used to print any environment setting. Any environment setting is kept in environment setting variable starting '$' like $precision and printed as ?$precision.
+To set environment setting variable's value, '= ' can be used. But only simple substitution is allowed,and can not be used in any equation(calculation).
+
+</li>
+<li><b>Value printing:</b><br/>
+Value of a variable or a environment setting can be printed by ?. But,only a variable or a environment setting can be placed after ?. Any equation or computation can not be placed after ?.
+
+<li><b>Processing unit(statement):</b><br/>
+One line can be divided into statements by ';'. VPC processes a statement at a time.
+For instance,a = pi();?a, a = pi() is computed first,and the result is printed by ?a next.
+This is the same as writing 2 lines like
+<blockquote>
+  a = pi()<br/>
+  ?a
+</blockquote>
+But writing 'a = pi()  ?a' without using ';' will be an error.
+</li>
+
+<li><b>Quotation marks( ' or " ):</b><br/>
+Any character string having space or spcial character can be quoted by ( ' or " ).
+Quoted string is treated as a single token.
+Numerical value representaion can be long and can be divided by spaces ' ' or by commnas ',' for readability.
+In such a case it should by quoted by ' or " as '1,000' for example.
+If it is not quoted as 1,000, VPC recognizes it as 1 and 000 (separated tokens) which is a syntax error.
+' can be used for a string having " in it," can be used for a string having ' in it. But any string having both " and ' is not allowed.<br/>
+
+
+<b>Example:</b><blockquote>
+a='pi'() is correct, but a=' pi  '() is an error('pi' is a function name,but ' pi  ' is not).<br/>
+a=1000 is correct. a= " -   10.0 1" is regarded as a=-10.01 and is also correct. Spaces(and characters specified by <a href="#setting">$format</a>) in a numerical expression are ignored.
+
+</<blockquote>
+<li><b>Iterations:</b><br/>
+<a href="#repeat">repeat or while </a>(repeated to the end of line)can be used.
+</li>
+<li><b>Input/Output:</b><br/>
+write ".\result.txt" saves all variable values and settings to the file ".\result.txt" which can be restored by read ".\result.txt".
+</li>
+<li><b>Comment:</b><br/>
+# means the start of comment and any character from # to the end of line will be ignored,
+</ol>
+
+<a name="functions"></a>
+<H2>Functions</H2>
+Every functions bellow(except for iterations()) return digits specified by $precision at least after successful computation.
+<table width="100%">
+<tr><th>Function name</th><th>Description</th><th>Example</th><th>Remarks</th></tr>
+<tr><td>atan(a)</td><td>computes arctangent of a<br/>
+ c = tan<sup>-1</sup>(a)</td><td>
+
+&gt;a=0.5;c=atan(a);?a<br/>
+ a =  0.8414709848 0789650665 ... 5435E0
+      </td><td>|a|&lt;=1 </td></tr>
+<tr><td>sin(a)/cos(a)</td><td>computes trigonometric function</td><td>
+&gt;a=sin(1);?a;b=cos(1);?b;c=a*a+b*b;?c<br/>
+ a =  0.8414709848 0789650665 ... 5435E0<br/>
+ b =  0.5403023058 6813971740 ... 4357E0<br/>
+ c =  0.1E1
+</td><td>
+the argument value must be radian, not degree, and must be small enough.<br/>
+If the argument(a) is greater than  3.14...,then you must adjust a as a=a-3.14.. before calling sin(a) or cos(a).
+
+</td>
+<tr><td>exp(a)</td><td>computes exponentiation of Napier's number(base of natural logarithm:e<sup>a</sup>).
+</td><td>
+&gt;a=exp(1);?a<br/>
+ a =  0.2718281828 4590452353 ... 4E1
+ </td><td>    </td></tr>
+<tr><td>ln(a)</td><td>computes natural logarithm(base of Napier's number). <br/> Log<sub>e</sub>a</td><td>
+&gt;a=ln(0.5);?a;b=exp(a);?b<br/>
+ a = -0.6931471805 5994530941 723... 42E0<br/>
+ b =  0.5E0
+</td><td> 0 < a <= 2  </td></tr>
+<tr><td>pi()</td><td>computes ratio of a circle's circumference(π).</td><td>
+&gt;a=pi();?a<br/>
+ a =  0.3141592653 5897932384 ...068 E1
+</td><td>brackets () are necessary.</td></tr>
+<tr><td>sqrt(a)</td><td>computes square root<br/>
+a=b<sup>1/2</sup></td><td>
+&gt;a=sqrt(5);?a<br/>
+ a =  0.2236067977 4997896964 ...275 E1
+</td><td> a &gt;= 0    </td></tr>
+<tr><td>iterations() </td><td>returns total number of iteration count just before. </td><td>
+&gt;a=sqrt(2);b=iterations();?a;?b<br/>
+ a =  0.1414213562 3730950488 0168872420 ...7E1<br/>
+ b =  0.2E2
+      </td><td>iterations() &lt;= <a href="#setting">$max_iterations</a> </td></tr>
+</table>
+Notes:
+<ul>
+<li>pi()(computed by Machin's formula) and sqrt() (computed by Newton's method) are rather stable.</li>
+<li>other functions are computed by series expansion method that have some experimental aspects.
+And,therefor,the argument value must be substantially small.</li>
+</ul>
+<br/>
+<br/>
+
+<table width="100%">
+<tr><th>Function name</th><th>Description</th><th>Example</th><th>Remarks</th></tr>
+<tr><td>abs(a) </td><td>computes absolute value of a.</td><td>
+&gt;a=-1;b=abs(a);?b<br/>
+ b =  0.1E1
+</td><td> </td></tr>
+<tr><td>power(a,n)</td><td>computes n power of a<br/>
+b=power(a,n) =&gt; b=a<sup>n</sup></td><td>
+&gt;b=power(2,-2);?b<br/>
+ b =  0.25E0
+</td><td>n must be a positiove or negative <b>integer</b>.<br/>
+ b = power(2,0.5) is an error.
+    </td></tr>
+<tr><td>int(a)</td><td>extracts integer part of a.</td><td>
+&gt;a=(1/3)*100;b=int(a);?b<br/>
+ b =  0.33E2
+ </td><td>    </td></tr>
+<tr><td>frac(a) </td><td>extracts fraction part of a.</td><td>
+&gt;a=(1/3)*100;b=frac(a);?b<br/>
+ b =  0.3333333333 3333333333 ... 33 E0
+     </td><td>    </td></tr>
+<tr><td>digits(a)</td><td>returns number of effective digits of a.</td><td>
+&gt;a=(1/3)*2;?a;b=digits(a);?b<br/>
+ a =  0.6666666666 6666666666 ... 666 6667E0<br/>
+ b =  0.104E3
+      </td><td>    </td></tr>
+<tr><td>exponent(a)</td><td>returns an integer number of exponent of a.<br>
+a=0.xxxx*10<sup>n</sup> exponent(a) returns n.    </td><td>
+
+&gt;a=power(10,3);?a;b=exponent(a);?b<br/>
+ a =  0.1E4<br/>
+ b =  0.4E1<br/>
+</td><td>    </td></tr>
+</table>
+
+<a name="round_methods"></a>
+<h2>Rounding</h2>
+Rounding operation is implicitly performed when computation result is stored to any variable.
+If the computation result has more than $precision digits,then it is rounded by the method specified by $round.
+Rounding operation can also be done explicitly by calling one of two funtions(trim() or round()) listed bellow.
+
+<table width="100%">
+<tr><th>Function name</th><th>Description</th><th>Example</th></tr>
+<tr><td>trim(a,n)</td><td>trim(a,n) means,rounding operation is done on the (n+1)th digit counted from the left most position of a according to the specification of $round. After rounding, <b>a consists of n digits at most</b>.
+</td><td>
+>$format=F;a=1234.5678;b=trim(a,4);c=round(a,1);d=round(a,-1);e=round(a,0);?a;?b;?c;?d;?e # results are as follows
+      </td></tr>
+<tr><td>round(a,i) </td><td>
+round(a,i) rounds a at the i-th position where i is the relative position counted from the decimal point.
+<br/>
+If <b>i&gt;=0</b>,then the degit at (i+1)th position from the decimal point to the right is rounded.
+The total count of digits after the decimal point will be i at most.<br/>
+If <b>i&lt;0</b> then,the i-th digit from the decimal point to the left is rounded.
+As the result,at least i zeros appear from the decimal point to the left.
+
+    </td><td> 
+ a =  1234.5678<br/>
+ b =  1235<br/>
+ c =  1234.6<br/>
+ d =  1230<br/>
+ e =  1235
+ </td></tr>
+</table>
+
+<a name="rounds"></a>
+<b>Rounding methods:</b><br/>
+The list of round methods which can be assigned to $round(default: $round = half_up).
+<table>
+<tr><th>Round method</th><th>Meaning</th><th>Example</th></tr>
+      <TR><TD>up</TD><TD>round away from zero.</TD><td>
+>$round=up;a=-1/3;b=round(a,0);?b<br/>
+ b = -0.1E1
+</td></TR>
+      <TR><TD>down</TD><TD>round towards zero(truncate).</TD><td>
+>$round=down;a=-1/3;b=round(a,0);?b<br/>
+ b = -0.0
+</td></TR>
+      <TR><TD>half_up</TD><TD>round up if the digit &gt;= 5 otherwise truncated(default).</TD><td>
+>a=-2/3;b=round(a,3);?b<br/>
+ b = -0.667E0
+</td></TR>
+      <TR><TD>half_down</TD><TD>round up if the digit &gt;= 6 otherwise truncated.</TD><td>
+>$round=half_down;a=round(5.5555,3);?a<br/>
+ a =  0.5555E1
+</td></TR>
+      <TR><TD>ceil</TD><TD>round towards positive infinity(ceil).</TD><td>
+
+>$round=ceil;a=trim(1.2345,3);?a;b=trim(-1.2345,3);?b<br/>
+ a =  0.124E1<br/>
+ b = -0.123E1
+</td></TR>
+      <TR><TD>floor</TD><TD>round towards negative infinity(floor).</TD><td>
+>$round=floor;a=trim(1.2345,3);?a;b=trim(-1.2345,3);?b<br/>
+ a =  0.123E1<br/>
+ b = -0.124E1
+
+</td></TR>
+      <TR><TD>half_even</TD><TD>round towards the even neighbor(Banker's rounding). </td><td>
+>$round=half_even<br/>
+>a=trim(2.125,3);?a<br/>
+ a =  0.212E1<br/>
+>a=trim(2.135,3);?a<br/>
+ a =  0.214E1<br/>
+</td></tr>
+</table>
+
+<a name="repeat"></a>
+<h2>Iterative calculations</h2>
+<table width="100%">
+<tr><th>Iterartion method</th><th>Description</th><th>Example</th></tr>
+<tr><td>repeat n;</td><td>Statements after 'repeat n' to the line end will be repeated n times.
+n must be positive integer. </td><td><b>Factorial of 10(10!)</b><br/>
+>n=0;s=1;repeat 10;n=n+1;s=s*n<br/>
+>?s<br/>
+ s =  0.36288E7
+      </td></tr>
+<tr><td>while a op b;</td><td>Statements after 'while a op b' to the end of line will be repeated while the condition 'a op b' is satisfied(true). a or b must be a variable or any numerical number.
+One of a or b must be a variable at least. op can be the one listetd bellow.
+<ul>
+<li>a <b>&gt;</b> b   ..... a is greater than b</li>
+<li>a <b>&lt;</b> b   ..... a is less than b </li>
+<li>a <b>&gt;=</b> b ... a is greater or equal to b </li>
+<li>a <b>&lt;=</b> b .... a is less than or equal to b </li>
+<li>a <b>==</b> b  ... a is equal to b </li>
+<li>a <b>!=</b> b .... a is not equal to b</li>
+</ul>
+
+ </td><td>
+<b>Factorial of 10(10!)</b><br/>
+>n=10;s=1;while n>0;s=s*n;n=n-1<br/>
+>?s<br/>
+ s =  0.36288E7
+ </td></tr>
+</table>
+Note:
+<ul>
+<li> repeat or while can not be placed after repeat or while to the end of line(repeat or while can not be nested).</li>
+<li>If any error is found after repeat or while,then the iteration will be aborted.</li>
+</ul>
+<br/>
+<br/>
+
+
+
+
+<a name="setting"></a>
+<h2>Environment settings</h2>
+<table width="100%">
+<tr><th>Setting name</th><th>Description</th><th>Example</th></tr>
+<tr><td>$format </td><td>
+Controls how the numeric number is printed.<br>
+Each character of the character string at the right hand of $format will be processed from left to right.
+>?$format  # default value <br>
+$format = '10*E q' <br/>
+<ul>
+<li>'10':Any integer. Numerical string is divided by the delimitter(' ' or ',' as explained bellow) at every n(10 in this case) characters for readability.</li>
+<li>'*' :'*','+',or '-'. controls the first character of the number printed. The following character can be given.
+  <ul>
+   <li>  '*' ... One space ' ' is output for positive number(default). '-' is output for negative number.</li>
+   <li>  '-' ... No space is output for positive number. '-' is output for negative number.</li>
+   <li>  '+' ... '+' is output for positive number.  '-' is output for negative number.</li>
+  </ul><br/>
+<li>'E' :'E' or 'F'. when 'E'is specified,then number is output as 0.123...E3,where E3 means 10<sup>3</sup>.
+ 'F' means to output number in normal format without power of 10 specification.</li>
+
+<li>' ' :' ' or  ','. specify the delimitter of the number string. A space or comma can be specified.</li>
+<li>'q' :'q' or 'Q'. when 'Q' is specified, then the numeric string output is quoted by '. 'q' is not.
+</li>
+<li>If the same specifications are found,then later specification will be adopted.</li>
+</ul>
+    </td><td>
+Default value: '10*E q' <p/><br/>
+<br/>
+>a=(1/3)*1000;?a<br/>
+ a =  0.3333333333 3333333333 ... 333 333E3<br/>
+>$format='QF,';?a<br/>
+ a = '333.3333333333,33333...333,3333333333'
+      </td></tr>
+<tr><td>$max_iterations</td><td>maximum number of iteration count for computing sin() cos() ...etc. </td><td> Default value: 10000     </td></tr>
+<tr><td>$precision   </td><td>Maximum number of digits that each variable a,b,...z can hold. In case like a=b*c+d,the right hand side of the equation will be performed as many digits as to keep the exact result(computation like 1/3 is a special case ). And finaly rounded when stored to the left hand side variable when the total digits are greater than  $precision according to the $round specification. </td><td> Default value: 100 </td></tr>
+<tr><td>$round</td><td><a href="#rounds">Method for the rounding operation</a>.</td><td> Default value: half_up </td></tr>
+<tr><td>$title</td><td>Any character string can be specified.</td><td>Default value: ""      </td></tr>
+<tr><td>$a,$b,...$y,$z </td><td>Any character string can be specified. Any comments about each variable may be useful. </td><td> Default value: "" </td></tr>
+</table>
+
+<a name="IO"></a>
+<h2>Input/Output</h2>
+<table width="100%">
+<tr><th>I/O statement</th><th>Description</th></tr>
+<tr><td>read 'file path'</td><td>Specified file is read and executed. If the file is output by 'write' command,then everything will be restored to the state when the 'write' command is executed.</td></tr>
+<tr><td>write 'file path'</td><td>Every value of variables and environment setting will be output to the specified file. Every thing can be restored by read command to the state when write is executed.</td></tr>
+</table>
+
+<div align="right">
+Shigeo Kobayashi 2024-3-15
+</div>
+<hr/>
+</body>
+</html>

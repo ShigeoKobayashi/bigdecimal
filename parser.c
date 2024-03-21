@@ -543,9 +543,9 @@ int ParseStatement(int iStatement)
 			if ((chv2 != '=') && (chv2 != '!') && (chv2 != '>') && (chv2 != '<')) goto Error;
 			chv2 = TokenChar(iStatement, 4, 0);
 		}
-		chv1 = chv1 - 'a';
-		chv2 = chv2 - 'a';
-		if ((chv1 < 0 || chv1>9) && (chv2 < 0 || chv2>9)) {
+		chv1 = chv1 - '0';
+		chv2 = chv2 - '0';
+		if ((chv1 >= 0 && chv1<=9) && (chv2 >= 0 && chv2<=9)) {
 			ERROR(fprintf(stderr, "Error: At least one variable must be specified(%s).\n", TokenPTR(iStatement, 0)));
 			goto Error;
 		}
