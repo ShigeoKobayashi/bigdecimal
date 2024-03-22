@@ -43,6 +43,8 @@ static char    gDigitLeader    = ' '; /* must be 0 or
                                        ' ' ...  ' ' is printed for positive number.
                                        */
 
+static int IsDSeparator(char ch) { return (isspace(ch) || (ch == gDigitSeparator));}
+
 /*
    ================================================
    CInitializer() initializes this DLL when loaded.
@@ -1341,20 +1343,22 @@ static VP_HANDLE
     /* get exponent part */
     e  = 0;
     ma = a->MaxPrec;
-
+    j = -1;
     for (i=0;i<ne;++i) {
+        ++j;
         es = e;
-        e  = e * 10 + (int)(exp_chr[i] - '0');
+        while (isspace(exp_chr[j])) ++j;
+        e  = e * 10 + (int)(exp_chr[j] - '0');
         if (es > (int)(e*BASE_FIG)) {
             /* Exponent overflow */
             int zero = 1;
             for (     ; i < ni && zero; i++) {
-                if(int_chr[i]==gDigitSeparator) {++ni;continue;}
+                if(IsDSeparator(int_chr[i])) { ++ni; continue; }
                 zero = (int_chr[i] == '0');
             }
             for (i = 0; i < nf && zero; i++) {
-                if(frac[i]==gDigitSeparator) {++nf;continue;}
-                zero = frac[i]    == '0';
+                if (IsDSeparator(frac[i]))   {++nf; continue; }
+                zero = frac[i] == '0';
             }
             if (!zero && signe > 0) {
                 VpSetInf((VP_HANDLE)a, sign);
@@ -1388,7 +1392,7 @@ static VP_HANDLE
     a->frac[ind_a] = 0;
     while (i < ni) {
         while ((j < BASE_FIG) && (i < ni)) {
-            if (int_chr[i]==gDigitSeparator) {++i;++ni;continue;}
+            if (IsDSeparator(int_chr[i])) { ++i; ++ni; continue; }
             a->frac[ind_a] = a->frac[ind_a] * 10 + (VP_DIGIT)(int_chr[i] - '0');
             ++j;
             ++i;
@@ -1404,7 +1408,7 @@ static VP_HANDLE
     i = 0;
     while (i < nf) {
         while ((j < BASE_FIG) && (i < nf)) {
-            if (frac[i]==gDigitSeparator) {++i;++nf;continue;}
+            if (IsDSeparator(frac[i])) { ++i; ++nf; continue; }
             a->frac[ind_a] = a->frac[ind_a] * 10 + (VP_DIGIT)(frac[i] - '0');
             ++j;
             ++i;
@@ -1584,7 +1588,7 @@ static VP_HANDLE
     /* determine integer part */
     ni = 0;        /* digits in mantissa */
     while ((v = szVal[i]) != 0) {
-        if (v==gDigitSeparator) {++i;continue;}
+        if (IsDSeparator(v)) { ++i; continue; }
         if (!isdigit(v)) break;
         ++i;
         ++ni; /* Num of digits before '.' */
@@ -1601,7 +1605,7 @@ static VP_HANDLE
             ++i;
             ipf = i;
             while ((v = szVal[i]) != 0) {    /* get fraction part. */
-                if (v==gDigitSeparator) {++i;continue;}
+                if(IsDSeparator(v)) { ++i; continue; }
                 if (!isdigit(v)) break;
                 ++i;
                 ++nf; /* Num of digits after '.' */
@@ -1613,13 +1617,13 @@ static VP_HANDLE
         case 'e': case 'E':
         case 'd': case 'D':
             ++i;
-            v = szVal[i];
+            while(isspace(v = szVal[i])) ++i;
             if      (v == '-') {signe = -1; ++i;}
             else if (v == '+')  ++i;
             ipe = i;
-            while ((v=szVal[i]) != 0) {
+            while ((v=szVal[i++]) != 0) {
+                if (isspace(v)) continue;
                 if (!isdigit(v)) return VpException((VP_HANDLE)VP_ERROR_BAD_STRING,"Bad numeric string.");
-                ++i;
                 ++ne;
             }
             break;
@@ -2010,7 +2014,7 @@ VP_EXPORT(char *)
     }
     /* drop trailing zeros */
     psz--;
-    while(*psz=='0' || *psz==gDigitSeparator) psz--;
+    while(*psz=='0' || IsDSeparator(*psz)) psz--;
     sprintf(++psz, "E%d", VpExponent((VP_HANDLE)a));
     return sz;
 }

@@ -77,14 +77,17 @@ static int IsDigit(UCHAR ch)
 
 static int IsNumeric(int iStatement,int it)
 {
-	int ixs      = 0;
-	int ixe      = TokenSize(iStatement,it)-1;
-	UCHAR ch      = TokenChar(iStatement,it, 0);
-	int  cd      = 0;
-	int cSign    = 0;
-	int cE       = 0;
-	int cEDigits = 0;
-	int cDot     = 0;
+	int ixs        = 0;
+	int ixe        = TokenSize(iStatement,it)-1;
+	UCHAR ch       = TokenChar(iStatement,it, 0);
+	int   cDot = 0;
+
+	int   cd       = 0;
+	int   cSign    = 0;
+
+	int   cE       = 0;
+	int   cEDigits = 0;
+	int   cESign   = 0;
 
 	int i;
 
@@ -118,13 +121,18 @@ static int IsNumeric(int iStatement,int it)
 			continue;
 		}
 		if (ch == '+' || ch == '-') {
-			if (cd > 0) return 0;
-			if (cSign++ > 0) return 0;
+			if (cE == 0) {
+				if (cd > 0) return 0;
+				if (cSign++ > 0) return 0;
+			}
+			else {
+				if (cEDigits > 0) return 0;
+				if (cESign++ > 0) return 0;
+			}
 		} else
 		if (ch == 'E' || ch == 'e' || ch == 'D' || ch == 'd') {
 			if (cd <= 0)  return 0;
 			if (cE++ > 0) return 0;
-			cSign = 0;
 		} else
 		if (ch == '.') {
 			if (cDot++ > 0) return 0;
@@ -154,7 +162,7 @@ int IsToken(const UCHAR* token,int iStatement, int it)
 	int nc = TokenSize(iStatement,it);
 	int i;
 	if (strlen(token) != nc) return 0;
-	for (i = 0; i < nc; ++i) if (token[i] != TokenChar(iStatement,it, i)) return 0;
+	for (i = 0; i < nc; ++i) { if (token[i] != TokenChar(iStatement, it, i)) return 0; }
 	return 1;
 }
 
@@ -174,7 +182,7 @@ static int IsVariable(int iStatement,int it)
 	return 0;
 
 More:
-	if (it + 1 >= gStatements[iStatement].end) return 1;
+	if (it+1>=TokenCount(iStatement)) return 1;
 	if (IsToken("(", iStatement, it+1)) {
 		ERROR(fprintf(stderr, "Error: syntax invalid(variable is not a function).\n"));
 		return 0;
@@ -497,7 +505,9 @@ int ExecuteStatement(int iStatement)
 	if (IsToken("while", iStatement, 0) && (nt == 4||nt==5)) { DoWhile(iStatement, nt); return 1; }
 
 	if (TokenWhat(iStatement, 0) == VPC_VARIABLE) {
-		if(ParseCalculation(iStatement)) ComputePolish(iStatement);
+		if (ParseCalculation(iStatement)) {
+			ComputePolish(iStatement);
+		}
 	} else {
 		ERROR(fprintf(stderr, "Error: Syntax error.\n"));
 	}
