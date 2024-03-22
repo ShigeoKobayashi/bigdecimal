@@ -119,7 +119,7 @@ void PrintVariable(FILE* f, UCHAR chv)
 	VP_HANDLE v;
 	int ixv = chv - 'a';
 
-	if (ixv < 0 || ixv >= 25) ixv = 26;
+	if (ixv < 0 || ixv > 25) ixv = 26;
 	v = gVariables[ixv];
 	fprintf(f," %c = ", chv);
 	if (gchQuote == 'Q') fprintf(f,"%c", '\'');
@@ -222,7 +222,7 @@ void DoTitle(int iStatement)
 	UCHAR* psz = TokenPTR(iStatement,2);
 	if (TokenCount(iStatement) == 2 && IsToken("=", iStatement,1)) {	strcpy(gszTitle, " ");	return; }
 	if (TokenCount(iStatement) != 3 || !IsToken("=", iStatement, 1)) { ERROR(fprintf(stderr, "Error: syntax error.\n")); return; }
-	if (((size_t)l=strlen(psz)) >= (size_t)gmTitle) {
+	if (((size_t)(l=strlen(psz))) >= (size_t)gmTitle) {
 		ERROR(fprintf(stderr, "Error: String too long for $title.\n"));
 		return;
 	}
