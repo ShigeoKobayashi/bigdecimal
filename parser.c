@@ -87,6 +87,28 @@ static int IsNumeric(int iStatement,int it)
 	int cDot     = 0;
 
 	int i;
+
+	if(IsToken("NaN",iStatement,it)) {
+		SetTokenWhat2(iStatement, it, 3); /* NaN */
+		SetTokenWhat(iStatement, it, VPC_NUMERIC);
+		return 1;
+	}
+	if (IsToken("Infinity", iStatement, it)) {
+		SetTokenWhat2(iStatement, it, 4); /* Infinity */
+		SetTokenWhat(iStatement, it, VPC_NUMERIC);
+		return 1;
+	}
+	if (IsToken("+Infinity", iStatement, it)) {
+		SetTokenWhat2(iStatement, it, 4); /* +Infinity */
+		SetTokenWhat(iStatement, it, VPC_NUMERIC);
+		return 1;
+	}
+	if (IsToken("-Infinity", iStatement, it)) {
+		SetTokenWhat2(iStatement, it, 5); /* -Infinity */
+		SetTokenWhat(iStatement, it, VPC_NUMERIC);
+		return 1;
+	}
+
 	for (i = ixs; i <= ixe; ++i) {
 		ch = TokenChar(iStatement,it, i);
 		if(isspace(ch)||ch == gchSeparator) continue;

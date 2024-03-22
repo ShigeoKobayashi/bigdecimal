@@ -59,6 +59,7 @@ Windows binary files(<a href="http://www.tinyforest.jp/oss/bigdecimal.zip">32-bi
 <a href="#repeat">Iterative calculations</a>  
 <a href="#setting">Environment settings</a>  
 <a href="#IO">Input/Outout</a>  
+<a href="#Special">Special symbols</a>  
 </h3>
 VPC(Variable precision calculator)is a simple but a programmable calculator. Using <a href="http://www.tinyforest.jp/oss/bigdecimal.html" target="_new">Bigdecimal</a>,VPC can offer any number of effective digits you want as far as your computer memories installed allows.
 Following example computes the ratio of the circumference of a circle to its diameter(π).
@@ -395,6 +396,19 @@ Default value: '10*E q' <p/><br/>
 <tr><td>read 'file path'</td><td>Specified file is read and executed. If the file is output by 'write' command,then everything will be restored to the state when the 'write' command is executed.</td></tr>
 <tr><td>write 'file path'</td><td>Every value of variables and environment setting will be output to the specified file. Every thing can be restored by read command to the state when write is executed.</td></tr>
 </table>
+
+<a name="Special"></a> 
+<h2>Special symbols</h2>
+Special symbols (Infinity and NaN) is used for unrepresentable resulted by division by zero.
+<ul>
+<li> a = 1/0;?a  ... a = Infinity  # unrepresentable value</li>
+<li> a =-1/0;?a  ... a =-Infinity  # unrepresentable value</li>
+<li> a = 0/0;?a  ... a = NaN       # NaN:Not a Number</li>
+</ul>
+The value of division by zero cannnot be represented by any numerical symbol.
+After division by zero, 'a' will be stored special symbol listed above.
+Division by zero is itself an error. And referencing to 'a' after the division is also an error.
+NaN is not a number and never coincident with anything including itself.
 
 <div align="right">
 Shigeo Kobayashi 2024-3-15

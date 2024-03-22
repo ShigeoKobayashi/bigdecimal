@@ -236,14 +236,30 @@ static int DoBinaryOperation(int iStatement,int ixp, int token)
 	VP_HANDLE w; 
 	int ixw;
 
-	int l1 = VpCurLength(v1);
-	int l2 = VpCurLength(v2);
-	int e1 = VpExponent(v1);
-	int e2 = VpExponent(v2);
+	int l1 = 0;
+	int l2 = 0;
+	int e1 = 0;
+	int e2 = 0;
 	int l = l1;
 	int d = 0;
 
 	UCHAR ch = TokenChar(iStatement,token,0);
+
+	if (VpIsNumeric(v1)) {
+		l1 = VpCurLength(v1);
+		e1 = VpExponent(v1);
+	} else {
+		l1 = 10;
+		e1 = 1;
+	}
+	if (VpIsNumeric(v2)) {
+		l2 = VpCurLength(v2);
+		e2 = VpExponent(v2);
+	} else {
+		l2 = 10;
+		e2 = 1;
+	}
+
 	switch (ch)
 	{
 	case '+':

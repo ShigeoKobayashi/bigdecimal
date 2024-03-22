@@ -59,6 +59,7 @@ Windows 用実行ファイル(32-bit:vpc.exe と bigdecimal.dll) はここから
 <a href="#repeat">繰返し計算</a>  
 <a href="#setting">動作環境設定</a>  
 <a href="#IO">入出力</a>  
+<a href="#Special">特殊表記</a>  
 </h3>
 VPC(Variable precision calculator) は<a href="http://www.tinyforest.jp/oss/bigdecimal.html" target="_new">Bigdecimal</a>を利用した任意精度のプログラマブル関数電卓です。搭載メモリー等が許す範囲で計算桁数は任意に指定できます。
 例えば、円周率を２００桁（標準は100桁）計算する場合、以下のようにできます。
@@ -372,6 +373,18 @@ $format = '10*E q' # 初期値<br/>
 <tr><td>read 'ファイルパス'</td><td>実行ステートメントを指定されたファイルから読み込み実行します。とくに、 write コマンドで出力されたファイルを読み込めば、write コマンド実行時の状態になります。</td></tr>
 <tr><td>write 'ファイルパス'</td><td>現状の環境設定と全ての変数の値を指定されたファイルにテキスト形式の代入文で書き込みます。後に read コマンドに同じファイルを指定すれば状態を復元することができます。</td></tr>
 </table>
+
+<a name="Special"></a> 
+<h2>特殊表記</h2>
+特殊表記（以下の Infinity や NaN）はゼロの割り算等で表現できない結果が生じた場合に用いられます。
+<ul>
+<li> a = 1/0;?a  ... a = Infinity  #と表記されます。</li>
+<li> a =-1/0;?a  ... a =-Infinity  #と表記されます。</li>
+<li> a = 0/0;?a  ... a = NaN       #と表記されます(NaN:Not a Number)。</li>
+</ul>
+上記のような計算を実行すると a には特殊な表記（値）が設定されます。
+この計算自体エラーとなりますが、以後の計算にそのまま a を使用する場合は全てエラー扱いとなります。
+NaN は自分自身を含めて全ての比較に対して不一致となります。
 
 <div align="right">
 Shigeo Kobayashi 2024-3-15
