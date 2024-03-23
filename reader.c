@@ -276,7 +276,6 @@ static UCHAR ReadStatement(FILE* f,int iStatement,int *nc)
 	return ch;
 }
 
-
 static UCHAR ReadLine(FILE* f)
 {
 	UCHAR ch;
@@ -293,7 +292,6 @@ static UCHAR ReadLine(FILE* f)
 	do {
 		ch = ReadStatement(f, gcStatements ,&nc);
 		if (nc <= 0) continue;
-
 		PushBuffer('\0');
 		if (gcStatements >= gmStatements) {
 			FATAL(fprintf(stderr, "SYTEM_ERROR: too meny statements(%d)", gmStatements));
@@ -306,47 +304,49 @@ static UCHAR ReadLine(FILE* f)
 #ifdef _DEBUG
 	PrintTokens();
 #endif
-	if (gcError == 0) {
-		/* No syntax error => execute statements in a line */
-		int i;
-		for (i = 0; i < gcStatements; ++i) {
-			do {
-				gnRepeat = 0;
-				gfWhile = 0;
-				if (ExecuteStatement(i) < 0) { ch = EOF; return ch; }
-				if (gfWhile < 0) { gfWhile = 0; return ch; }
-				/* repeat */
-				if (gnRepeat > 0) {
-					int j;
-					while (--gnRepeat > 0) {
-						for (j = i + 1; j < gcStatements; ++j) {
-							if (ExecuteStatement(j) < 0) return EOF;
-							if (gcError > 0) return ch;
-						}
-					}
-				}
-		
-				/* while */
-				if (gfWhile > 0) {
-					int j;
+	return ch;
+}
+
+static char ExecuteLine(UCHAR ch)
+{
+	int i;
+	if (gcError > 0) return ch;
+	/* No syntax error => execute statements in a line */
+	for (i = 0; i < gcStatements; ++i) {
+		do {
+			gnRepeat = 0;
+			gfWhile = 0;
+			if (ExecuteStatement(i) < 0) { ch = EOF; return ch; } /* case of 'quit' */
+			if (gfWhile < 0) { gfWhile = 0; return ch; }
+			/* repeat */
+			if (gnRepeat > 0) {
+				int j;
+				while (--gnRepeat > 0) {
 					for (j = i + 1; j < gcStatements; ++j) {
-						if (ExecuteStatement(j) < 0) return  EOF;
+						if (ExecuteStatement(j) < 0) return EOF;
 						if (gcError > 0) return ch;
 					}
 				}
-			} while (gfWhile);
-		}
+			}
+			/* while */
+			if (gfWhile > 0) {
+				int j;
+				for (j = i + 1; j < gcStatements; ++j) {
+					if (ExecuteStatement(j) < 0) return  EOF; /* case of 'quit' */
+					if (gcError > 0) return ch;
+				}
+			}
+		} while (gfWhile);
 		if (IsEOF(ch) || gcError > 0) return ch;
 	}
 	return ch;
 }
 
-
-void ReadLines(FILE* f)
+void ReadAndExecuteLines(FILE* f)
 {
 	UCHAR ch='\n';
 	do {
 		if (IsEOL(ch) && f == stdin) printf("\n>");
-		ch = ReadLine(f);
+		ch = ExecuteLine(ReadLine(f));
 	} while (!IsEOF(ch));
 }

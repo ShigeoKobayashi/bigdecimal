@@ -118,8 +118,13 @@ void PrintVariable(FILE* f, UCHAR chv)
 {
 	VP_HANDLE v;
 	int ixv = chv - 'a';
-
-	if (ixv < 0 || ixv > 25) ixv = 26;
+	if (chv == 'R') ixv = 26;
+	else {
+		if (ixv < 0 || ixv > 25) {
+			ERROR(fprintf(stderr,"Error: undefined identifier(%c)\n",chv));
+			return;
+		}
+	}
 	v = gVariables[ixv];
 	fprintf(f," %c = ", chv);
 	if (gchQuote == 'Q') fprintf(f,"%c", '\'');
@@ -283,7 +288,7 @@ void DoRead(UCHAR* inFile)
 		ERROR(fprintf(stderr, "Error: unable to open the file(%s).\n", inFile));
 		return;
 	}
-	ReadLines(f);
+	ReadAndExecuteLines(f);
 	fclose(f);
 }
 

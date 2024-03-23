@@ -322,6 +322,7 @@ int ToIntFromSz(int* pi, UCHAR* sz)
 		if (ch == '\0') break;
 		if (i == 0 && ch == '+') continue;
 		if (i == 0 && ch == '-') { sign = -1; continue; }
+		if (isspace(ch)        )  continue;
 		if (ch == gchSeparator )  continue;
 		if (ch == '.') { dot = 1; continue; }
 		++i;

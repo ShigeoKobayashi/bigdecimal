@@ -83,7 +83,7 @@ extern int    gmDelimiters;
 
 extern void   InitReader(int buffer_size, int token_size);
 extern void   FinishReader();
-extern void   ReadLines(FILE* f);
+extern void   ReadAndExecuteLines(FILE* f);
 extern void   DoRepeat(UCHAR* repeat);
 extern void   DoWhile(int iStatement,int nt);
 extern int    IsToken(const UCHAR* token, int iStatement,int it);

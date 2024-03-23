@@ -2,9 +2,7 @@
  * Variable precision calculator.
  * (Test program for Bigdecimal(Variable decimal precision) C/C++ library.)
  *
- *  Copyright(C) 2018 by Shigeo Kobayashi(shigeo@tinyforest.jp)
- *
- *    Version 1.1   ... VpLoad() added.
+ *  Copyright(C) 2024 by Shigeo Kobayashi(shigeo@tinyforest.jp)
  *
  */
 
@@ -41,9 +39,10 @@ void CtrlC(int signal)
 
 int main(int argc, UCHAR* argv[])
 {
+	FILE* fIni;
+
 	printf("\nVPC(Variable Precision Calculator V2) of Bigdecimal(V%d)\n",VpVersion());
-	printf("  Copyright (c) 2024 by Shigeo Kobayashi. Allrights reserved.\n\n");
-	printf("Enter command");
+	printf("  Copyright (c) 2024 by Shigeo Kobayashi. Allrights reserved.\n");
 
 /*
 	signal(SIGINT, CtrlC);
@@ -51,7 +50,24 @@ int main(int argc, UCHAR* argv[])
 	VpSetExceptionHandler(MyException);
 
 	InitVpc(1024,512);
-	ReadLines(stdin);
+
+	fIni = fopen("./vpc.ini", "r");
+	if (fIni != NULL) {
+		char ch=0;
+		printf("\n vpc.ini found, read it ");
+		while (ch != 'y' && ch != 'n') {
+			if(ch!='\n') printf("(y/n) ?");
+			ch = getchar();
+		}
+		if (ch == 'y') {
+			printf("\nreading vpc.ini ...");
+			ReadAndExecuteLines(fIni);
+		}
+		fclose(fIni);
+	}
+
+	printf("\nEnter command");
+	ReadAndExecuteLines(stdin);
 	FinishVpc(0);
 	return 0;
 }
