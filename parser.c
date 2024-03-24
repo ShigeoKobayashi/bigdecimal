@@ -204,7 +204,7 @@ static int IsOperator(int iStatement,int it)
 	if (ch == '(') { SetTokenWhat(iStatement, it,VPC_BRA);       SetTokenPriority(iStatement, it, 0); return 1; }
 	if (ch == ')') { SetTokenWhat(iStatement, it,VPC_KET);       SetTokenPriority(iStatement, it, 1); return 1; }
 	if (ch == '?') { SetTokenWhat(iStatement, it,VPC_PRINT);     SetTokenPriority(iStatement, it, 0); return 1; }
-	if (ch == '=') { SetTokenWhat(iStatement, it,VPC_BOPERATOR); SetTokenPriority(iStatement, it,20); return 1; }
+	if (ch == '=') { SetTokenWhat(iStatement, it,VPC_BOPERATOR); SetTokenPriority(iStatement, it,10); return 1; }
 	if (ch == '*') { SetTokenWhat(iStatement, it,VPC_BOPERATOR); SetTokenPriority(iStatement, it,40); return 1; }
 	if (ch == '/') { SetTokenWhat(iStatement, it,VPC_BOPERATOR); SetTokenPriority(iStatement, it,40); return 1; }
 	if (ch == ',') { SetTokenWhat(iStatement, it,VPC_COMMA);     SetTokenPriority(iStatement, it, 0); return 1; }
@@ -368,8 +368,15 @@ static int ParsePolish(int iStatement)
 	int ci = 0;
 	int token;
 
+#ifdef _DEBUG
+	printf("R_Polish:");
+#endif
+
 	for (i = 0; i < gcPolish; ++i) {
 		token = gPolish[i];
+#ifdef _DEBUG
+		printf(" %s ",TokenPTR(iStatement,token));
+#endif
 		switch(TokenWhat(iStatement,token))
 		{
 			case VPC_VARIABLE:
@@ -397,6 +404,9 @@ static int ParsePolish(int iStatement)
 				break;
 		}
 	}
+#ifdef _DEBUG
+	printf(" \n");
+#endif
 	if (ci == 1) return 1;
 	ERROR(fprintf(stderr, "Error: syntax error.\n"));
 	return 0;
@@ -436,7 +446,7 @@ static int MkReversePolish(int iStatement)
 			if (Empty()) Push(it);
 			else {
 				order = TokenPriority(iStatement,it); /* info == operator priority */
-				while (!Empty() && TokenPriority(iStatement,Top()) > order) {
+				while (!Empty() && TokenPriority(iStatement,Top()) >= order) {
 					PutPolish(Pop());
 				}
 				if (Push(it) < 0) return -1;
