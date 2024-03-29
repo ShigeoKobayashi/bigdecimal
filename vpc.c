@@ -9,19 +9,24 @@
 #include "vpc.h"
 #include <signal.h>
 
+int        gcError = 0; /* flag for error(error counter in a line) */
+int        gfQuit  = 0; /* flag for 'quit' */
+int        gfBreak = 0; /* flag for 'break' */
+
 void InitVpc(int cInput,int cToken)
 {
-	InitReader(cInput, cToken);
-	InitParser();
-	InitCalculator();
 }
 
 void FinishVpc(int e)
 {
-	FinishCalculator();
-	FinishParser();
-	FinishReader();
 	exit(e);
+}
+
+void ClearGlobal()
+{
+	gcError = 0;
+	gfQuit  = 0;
+	gfBreak = 0;
 }
 
 void MyException(VP_HANDLE h, const char* msg)

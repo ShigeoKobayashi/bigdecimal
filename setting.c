@@ -42,17 +42,17 @@ static ROUNDMODE gRMode[] = {
 };
 static int gmRMode = sizeof(gRMode) / sizeof(gRMode[0]);
 
-void PrintFormat(FILE *f)
+void PrintFormat(PARSER *p,FILE *f)
 {
 	fprintf(f,"$format = '%d%c%c%c%c'\n", gnCount, gchLeader, gchFormatChar, gchSeparator, gchQuote);
 }
 
-void PrintPrecision(FILE *f)
+void PrintPrecision(PARSER *p,FILE *f)
 {
 	fprintf(f,"$precision = '%d'\n", gmPrecision);
 }
 
-void PrintRound(FILE *f)
+void PrintRound(PARSER *p,FILE *f)
 {
 	int i;
 	for (i = 0; i < gmRMode; ++i) {
@@ -65,7 +65,7 @@ void PrintRound(FILE *f)
 	gRoundMode = VpGetRoundMode();
 }
 
-void PrintIterations(FILE *f)
+void PrintIterations(PARSER *p,FILE *f)
 {
 	fprintf(f,"$max_iterations = '%d'\n", gmIterations);
 }
@@ -79,7 +79,7 @@ static UCHAR GetQuote(UCHAR* psz)
 	}
 	return'\"';
 }
-void PrintTitle(FILE* f)
+void PrintTitle(PARSER *p,FILE* f)
 {
 	UCHAR ch;
 	if ( gszTitle[0] =='\0' ) fprintf(f, "$title = ' '\n");
@@ -105,12 +105,11 @@ void OutputVariableTitle(FILE* f, UCHAR chv)
 	else {
 		fprintf(f, " $%c = ' '\n", chv);
 	}
-
 }
 
-void PrintVariableTitle(FILE* f,int iStatement)
+void PrintVariableTitle(PARSER* p,FILE* f)
 {
-	UCHAR chv = TokenChar(iStatement,1, 1);
+	UCHAR chv = TokenChar(p->r,1, 1);
 	OutputVariableTitle(f, chv);
 }
 
@@ -139,39 +138,39 @@ void PrintVariable(FILE* f, UCHAR chv)
 	fprintf(f,"\n");
 }
 
-void DoPrint(int iStatement)
+void DoPrint(PARSER *p)
 {
 	int i;
 	FILE* f = stdout;
 
 	for (i = 0; i < gmSetting; ++i) {
-		if (strcmp(TokenPTR(iStatement,1),gSetting[i].name)==0) {
-			((void(*)(FILE*,int))gSetting[i].print)(f,iStatement); return;
+		if (strcmp(TokenPTR(p->r,1),gSetting[i].name)==0) {
+			((void(*)(PARSER *,FILE *))gSetting[i].print)(p,f); return;
 		};
 	}
-	if (TokenSize(iStatement,1) == 1)  { PrintVariable(f, TokenChar(iStatement, 1, 0)); return;}
-	ERROR(fprintf(stderr, "Error: undefined variable(%s).\n", TokenPTR(iStatement,1)));
+	if (TokenSize(p->r,1) == 1)  { PrintVariable(f, TokenChar(p->r, 1, 0)); return;}
+	ERROR(fprintf(stderr, "Error: undefined variable(%s).\n", TokenPTR(p->r,1)));
 	return;
 }
 
-void DoRound(int iStatement)
+void DoRound(PARSER *p)
 {
 	int i;
 
 	for (i = 0; i < gmRMode; ++i) {
-		if (IsToken(gRMode[i].name, iStatement, 2)) { gRoundMode = gRMode[i].value; VpSetRoundMode(gRoundMode); return; }
+		if (IsToken(gRMode[i].name, p->r, 2)) { gRoundMode = gRMode[i].value; VpSetRoundMode(gRoundMode); return; }
 	}
-	ERROR(fprintf(stderr, "Error: undefined round mode(%s)", TokenPTR(iStatement,2)));
+	ERROR(fprintf(stderr, "Error: undefined round mode(%s)", TokenPTR(p->r,2)));
 }
 
-void DoFormat(int iStatement)
+void DoFormat(PARSER *p)
 {
 	int i,id,nd;
 	UCHAR ch;
 	int nch;
-	nch = TokenSize(iStatement,2);
+	nch = TokenSize(p->r,2);
 	for (i = 0; i < nch; ++i) {
-		ch = TokenChar(iStatement, 2,  i);
+		ch = TokenChar(p->r, 2,  i);
 		if (ch == '\'' || ch == '\"') continue;
 		if (ch == 'E') { gchFormatChar = 'E'; continue; }
 		if (ch == 'F') { gchFormatChar = 'F'; continue; }
@@ -187,7 +186,7 @@ void DoFormat(int iStatement)
 			nd = 0;
 			while (i < nch) {
 				nd = nd * 10 + id;
-				ch = TokenChar(iStatement, 2, i+1);
+				ch = TokenChar(p->r, 2, i+1);
 				id = ch - '0';
 				if (id < 0 || id > 9) break;
 				++i;
@@ -201,32 +200,33 @@ void DoFormat(int iStatement)
 	}
 }
 
-void DoPrecision(int iStatement)
+void DoPrecision(PARSER *p)
 {
 	int  nd;
-	if (!ToIntFromSz(&nd, TokenPTR(iStatement,2))) return;
+	if (!ToIntFromSz(&nd, TokenPTR(p->r,2))) return;
 	if (nd < 20) {
 		ERROR(fprintf(stderr, "Error: negative or too small value for $precision(%d).\n", nd)); return;
 	}
 	gmPrecision = nd;
 }
 
-void DoIterations(int iStatement)
+void DoIterations(PARSER *p)
 {
 	int  nd;
-	if (TokenCount(iStatement) != 3 || !IsToken("=", iStatement, 1)) { ERROR(fprintf(stderr, "Error: syntax error.\n")); return; }
-	if (!ToIntFromSz(&nd, TokenPTR(iStatement,2))) return;
+	if (TokenCount(p->r) != 3 || !IsToken("=", p->r, 1)) { ERROR(fprintf(stderr, "Error: syntax error.\n")); return; }
+	if (!ToIntFromSz(&nd, TokenPTR(p->r,2))) return;
 	if (nd < 100) { ERROR(fprintf(stderr, "Error: negative or too small value for $max_iterations(%d).\n", nd)); return; }
 	VpSetMaxIterationCount(nd);
 	gmIterations = nd;
 }
 
-void DoTitle(int iStatement)
+void DoTitle(PARSER *p)
 {
+	READER* r = p->r;
 	int l;
-	UCHAR* psz = TokenPTR(iStatement,2);
-	if (TokenCount(iStatement) == 2 && IsToken("=", iStatement,1)) {	strcpy(gszTitle, " ");	return; }
-	if (TokenCount(iStatement) != 3 || !IsToken("=", iStatement, 1)) { ERROR(fprintf(stderr, "Error: syntax error.\n")); return; }
+	UCHAR* psz = TokenPTR(r,2);
+	if (TokenCount(r) == 2 && IsToken("=", r,1)) {	strcpy(gszTitle, " ");	return; }
+	if (TokenCount(r) != 3 || !IsToken("=", r, 1)) { ERROR(fprintf(stderr, "Error: syntax error.\n")); return; }
 	if (((size_t)(l=strlen(psz))) >= (size_t)gmTitle) {
 		ERROR(fprintf(stderr, "Error: String too long for $title.\n"));
 		return;
@@ -235,33 +235,35 @@ void DoTitle(int iStatement)
 	else    strcpy(gszTitle, " ");
 }
 
-void DoSetting(int iStatement)
+void DoSetting(PARSER *p)
 {
 	int i;
+	READER* r = p->r;
 
 	for (i = 0; i < gmSetting; ++i) {
-		if (IsToken(gSetting[i].name, iStatement, 0)) {
-			((void(*)(int))gSetting[i].calc)(iStatement); return;
+		if (IsToken(gSetting[i].name, r, 0)) {
+			((void(*)(PARSER *))gSetting[i].calc)(p); return;
 		}
 	}
-	ERROR(fprintf(stderr, "Error: invalid identifier(%s).\n", TokenPTR(iStatement,0)));
+	ERROR(fprintf(stderr, "Error: invalid identifier(%s).\n", TokenPTR(r,0)));
 }
 
-void SetVTitle(int iStatement)
+void SetVTitle(PARSER *p)
 {
+	READER* r = p->r;
 	UCHAR  chv;
 	UCHAR* pv;
 	int   ixv,nc;
-	int nt = TokenCount(iStatement);
+	int nt = TokenCount(r);
 
-	if (TokenSize(iStatement,0) != 2)                                goto Error;
-	if (TokenCount(iStatement)  != 2 && TokenCount(iStatement) != 3) goto Error;
+	if (TokenSize(r,0) != 2)                                goto Error;
+	if (TokenCount(r)  != 2 && TokenCount(r) != 3) goto Error;
 
-	chv = TokenChar(iStatement,0,1);
+	chv = TokenChar(r,0,1);
 	ixv = chv - 'a';
 	if (ixv < 0 || ixv>25)  goto Error;
 	pv = gszVTitle[ixv];
-	nc = strlen(TokenPTR(iStatement,2)) + 2;
+	nc = strlen(TokenPTR(r,2)) + 2;
 	if (nc > 512) {
 		ERROR(fprintf(stderr, "Error: too long variable title."));
 		return;
@@ -269,11 +271,11 @@ void SetVTitle(int iStatement)
 	if (pv != NULL) free(pv);
 	gszVTitle[ixv] = calloc(sizeof(UCHAR), nc);
 
-	if (TokenCount(iStatement) == 2) {
+	if (TokenCount(r) == 2) {
 		strcpy(gszVTitle[ixv], " ");
 	}
-	else if (TokenCount(iStatement) == 3) {
-		strcpy(gszVTitle[ixv],TokenPTR(iStatement,2));
+	else if (TokenCount(r) == 3) {
+		strcpy(gszVTitle[ixv],TokenPTR(r,2));
 	}
 	return;
 
@@ -292,7 +294,7 @@ void DoRead(UCHAR* inFile)
 	fclose(f);
 }
 
-void DoWrite(UCHAR* otFile)
+void DoWrite(PARSER *p,UCHAR* otFile)
 {
 	int i;
 	char chq = gchQuote;
@@ -301,11 +303,11 @@ void DoWrite(UCHAR* otFile)
 		ERROR(fprintf(stderr, "Error: unable to open the file(%s).\n", otFile));
 		return;
 	}
-	PrintTitle(f);
-	PrintFormat(f);
-	PrintPrecision(f);
-	PrintRound(f);
-	PrintIterations(f);
+	PrintTitle(p,f);
+	PrintFormat(p,f);
+	PrintPrecision(p,f);
+	PrintRound(p,f);
+	PrintIterations(p,f);
 	gchQuote = 'Q';
 	for (i = 0; i < 26; ++i) {
 		OutputVariableTitle(f, 'a' + i);
@@ -315,57 +317,45 @@ void DoWrite(UCHAR* otFile)
 	fclose(f);
 }
 
-void DoRepeat(UCHAR* repeat)
+void ParseAndExecuteRepeat(PARSER *p)
 {
-	UCHAR ch;
-	int   v;
 
-	if (gnRepeat == 0 && !gfWhile) {
-		if (isspace(*repeat)) repeat++;
-		if (*repeat == '+')   repeat++;
-		while (ch = *repeat++) {
-			v = ch - '0';
-			if (v < 0 || v>9) goto Error;
-			gnRepeat = gnRepeat * 10 + v;
-		}
-	}
-	else {
-		ERROR(fprintf(stderr, "Error: \'repeat\' or \'while\' can not be nested(execution interrupted.).\n"));
-		gnRepeat = 0; gfWhile = 0;
-	}
-	return;
+	int n;
+	int iSaved = (p->r)->iStatement;
 
-Error:
-	ERROR(fprintf(stderr, "Error: invalid character(%c), integer number expected in \'repeat\'.\n", ch));
-	gnRepeat = 0; gfWhile = 0;
-	return;
+	if(!ToIntFromSz(&n, TokenPTR(p->r,1))) return;
+	if (n <= 0) {
+		ERROR(fprintf(stderr, "Error: \'repeat\' must be follwes by a positive integer(%d).\n",n));
+		return;
+	}
+	while (--n >= 0) {
+		ExecuteStatement(p, iSaved + 1);
+		if (IsError()) return;
+	}
 }
 
-void DoWhile(int iStatement, int nt)
+void ParseAndExecuteWhile(PARSER *p, int nt)
 {
+	int fOk = 0;
+	int iSaved = (p->r)->iStatement;
 	VP_HANDLE v1;
 	VP_HANDLE v2;
 	int f = 0;
-	char chv1 = TokenChar(iStatement, 1, 0);
+	char chv1 = TokenChar(p->r, 1, 0);
 	char chv2;
 	char op1;
 	char op2;
-	op1 = TokenChar(iStatement, 2, 0);
-
-	if (gnRepeat > 0 || gfWhile) {
-		ERROR(fprintf(stderr, "Error: \'repeat\' or \'while\' can not be nested(execution interrupted.).\n"));
-		gnRepeat = 0; gfWhile = -1;
-		return;
-	}
+	op1 = TokenChar(p->r, 2, 0);
 
 	if (nt == 4) {
 		op2 = 0;
-		chv2 = TokenChar(iStatement, 3, 0);
+		chv2 = TokenChar(p->r, 3, 0);
 	}
 	else {
-		op2 = TokenChar(iStatement, 3, 0);
-		chv2 = TokenChar(iStatement, 4, 0);
+		op2 = TokenChar(p->r, 3, 0);
+		chv2 = TokenChar(p->r, 4, 0);
 	}
+
 	chv1 = chv1 - 'a';
 	chv2 = chv2 - 'a';
 
@@ -373,45 +363,201 @@ void DoWhile(int iStatement, int nt)
 		if (!EnsureVariable(chv1, gmPrecision)) return;
 		v1 = gVariables[chv1];
 	}
-	else {
-		v1 = gWorkVariables[-CreateNumericWorkVariable(TokenPTR(iStatement, 1)) - 1];
-	}
-
 	if ((chv2 >= 0 && chv2 <= 25)) {
 		if (!EnsureVariable(chv2, gmPrecision)) return;
 		v2 = gVariables[chv2];
 	}
-	else {
-		v2 = gWorkVariables[-CreateNumericWorkVariable(TokenPTR(iStatement, nt - 1)) - 1];
-	}
 
+do_while:
+	SetStatement(p->r, iSaved);
+	if((chv1 < 0 || chv1 > 25)) {
+		v1 = gWorkVariables[-CreateNumericWorkVariable(TokenPTR(p->r, 1)) - 1];
+	}
+	if ((chv2 < 0 || chv2 > 25)) {
+		v2 = gWorkVariables[-CreateNumericWorkVariable(TokenPTR(p->r, nt - 1)) - 1];
+	}
 	f = VpCmp(v1, v2);
-
+	fOk = 1;
 	if (f == 0) {
-		if (nt == 4) { gfWhile = -1; return; }	/* only > or < */
-		if (op1 == '!') { gfWhile = -1; return; }
-		gfWhile = 1;
-		return;
-	}
+			if (nt  ==  4 )  fOk = 0; /* Condition not satisfied */
+			if (op1 == '!')  fOk = 0; /* Condition not satisfied */
+	} else
 	if (f > 0) {
 		if (nt == 4) {
-			if (op1 == '>') gfWhile = 1;
-			else            gfWhile = -1;
-			return;
+			if (op1 == '>') fOk = 1; /* Condition satisfied */
+			else            fOk = 0;
+		} else {
+			if (op1 == '>' || op1 == '!') fOk = 1;
+			else                          fOk = 0;
 		}
-		if (op1 == '>' || op1 == '!') gfWhile = 1;
-		else                         gfWhile = -1;
-		return;
-	}
-	if (f < 0) {
+	} else {
 		if (nt == 4) {
-			if (op1 == '<') gfWhile = 1;
-			else            gfWhile = -1;
-			return;
+			if (op1 == '<') fOk = 1;
+			else            fOk = 0;
+		} else {
+			if (op1 == '<' || op1 == '!') fOk = 1;
+			else                          fOk = 0;
 		}
-		if (op1 == '<' || op1 == '!') gfWhile = 1;
-		else                          gfWhile = -1;
-		return;
+	}
+	if (fOk) {
+		ExecuteStatement(p, iSaved + 1);
+		if (IsError()) return;
+		goto do_while;
 	}
 	return;
+}
+
+void ParseAndExecuteIf(PARSER* p, int nt)
+{
+	int fOk = 0;
+	int iSaved = (p->r)->iStatement;
+	VP_HANDLE v1;
+	VP_HANDLE v2;
+	int f = 0;
+	char chv1 = TokenChar(p->r, 1, 0);
+	char chv2;
+	char op1;
+	char op2;
+	op1 = TokenChar(p->r, 2, 0);
+
+	if (nt == 4) {
+		op2 = 0;
+		chv2 = TokenChar(p->r, 3, 0);
+	}
+	else {
+		op2 = TokenChar(p->r, 3, 0);
+		chv2 = TokenChar(p->r, 4, 0);
+	}
+
+	chv1 = chv1 - 'a';
+	chv2 = chv2 - 'a';
+
+	if ((chv1 >= 0 && chv1 <= 25)) {
+		if (!EnsureVariable(chv1, gmPrecision)) return;
+		v1 = gVariables[chv1];
+	}
+	if ((chv2 >= 0 && chv2 <= 25)) {
+		if (!EnsureVariable(chv2, gmPrecision)) return;
+		v2 = gVariables[chv2];
+	}
+
+	SetStatement(p->r, iSaved);
+	if ((chv1 < 0 || chv1 > 25)) {
+		v1 = gWorkVariables[-CreateNumericWorkVariable(TokenPTR(p->r, 1)) - 1];
+	}
+	if ((chv2 < 0 || chv2 > 25)) {
+		v2 = gWorkVariables[-CreateNumericWorkVariable(TokenPTR(p->r, nt - 1)) - 1];
+	}
+	f = VpCmp(v1, v2);
+	fOk = 1;
+	if (f == 0) {
+		if (nt == 4)  fOk = 0; /* Condition not satisfied */
+		if (op1 == '!')  fOk = 0; /* Condition not satisfied */
+	}
+	else
+		if (f > 0) {
+			if (nt == 4) {
+				if (op1 == '>') fOk = 1; /* Condition satisfied */
+				else            fOk = 0;
+			}
+			else {
+				if (op1 == '>' || op1 == '!') fOk = 1;
+				else                          fOk = 0;
+			}
+		}
+		else {
+			if (nt == 4) {
+				if (op1 == '<') fOk = 1;
+				else            fOk = 0;
+			}
+			else {
+				if (op1 == '<' || op1 == '!') fOk = 1;
+				else                          fOk = 0;
+			}
+		}
+	if (fOk) {
+		ExecuteStatement(p, iSaved + 1);
+		if (IsError()) return;
+	}
+	return;
+}
+
+void ParseAndExecuteLoad(PARSER* p, int nt)
+{
+	int lines = 0;
+	int     i,j;
+	char    chv;
+	UCHAR   ch;
+	FILE*   fin;
+	READER* r;
+
+	int iSaved = (p->r)->iStatement;
+
+	fin = fopen(TokenPTR(p->r,1), "r");
+	if (fin == NULL) {
+		ERROR(fprintf(stderr, "Error: faile to open file(%s) for load.\n", TokenPTR(p->r, 1)) );
+		return;
+	}
+
+	r = OpenReader(fin, p->mSize * 2);
+	if (r == NULL) {
+		fclose(fin);
+		return;
+	}
+
+	do {
+		int ixs = 0;
+		int ixt = 0;
+		SetStatement(p->r, iSaved);
+		ch = ReadLine(r);
+		if (IsEOF(ch) && r->cStatements <= 0) goto Close;
+		lines++;
+		ixs = 0;
+		ixt = 0;
+		for (i = 2; i < nt; ++i) {
+			if (TokenSize(p->r, i) != 1) {
+				ERROR(fprintf(stderr, "Error: invalid argument for load(%s is not a variable).\n", TokenPTR(p->r, i)));
+				goto Close;
+			}
+			chv = TokenChar(p->r, i, 0);
+			j = chv - 'a';
+			if (j < 0 || j>25) {
+				ERROR(fprintf(stderr, "Error: invalid argument for load(%s is not a variable).\n", TokenPTR(p->r, i)));
+				goto Close;
+			}
+			if (!EnsureVariable(j, gmPrecision)) goto Close;
+			do {
+				SetStatement(r, ixs);
+				do {
+					if (IsNumeric(r, ixt)) {
+						VP_HANDLE v = gVariables[j];
+						VpLoad(v, TokenPTR(r, ixt));
+						if (i + 1 >= nt) goto ExecLoad;
+						if (++ixt >= TokenCount(r)) {
+							ixt = 0;
+							if (++ixs >= r->cStatements) {
+								ERROR(fprintf(stderr, "Error:insufficient numeric data in a line(line:%d)\n", lines));
+								goto Close;
+							}
+						}
+						goto NextToken;
+					}
+				} while (++ixt < TokenCount(r));
+				ixt = 0;
+			} while (++ixs < r->cStatements);
+			ERROR(fprintf(stderr, "Error:insufficient numeric data in a line(line:%d)\n", lines));
+			goto Close;
+		ExecLoad:
+			ExecuteStatement(p, iSaved + 1);
+			if (IsError()) goto Close;
+			if (IsQuit() ) goto Close;
+			if (gfBreak)   goto Close;
+			break;
+		NextToken:
+			continue;
+		}
+	} while (!IsEOF(ch));
+
+Close:
+	CloseReader(r);
 }

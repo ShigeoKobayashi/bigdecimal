@@ -21,10 +21,17 @@
 
 #define UCHAR unsigned char
 
-#define ERROR(s)   {gcError++; s ;}
-#define FATAL(s)  {s ; FinishVpc(-1);}
+ /* Extern items defined in vpc.c */
+extern int      gcError;  /* flag for error(error counter in a line) */
+extern int      gfQuit;   /* flag for 'quit' */
+extern int      gfBreak;  /* flag for 'break' */
 
-/* NODE.what */
+#define ERROR(s)  {gcError++; s ;}
+#define FATAL(s)  {s ; FinishVpc(-1);}
+#define IsError() (gcError>0)
+#define IsQuit()  (gfQuit!=0)
+
+/* TOKEN.what */
 #define VPC_VARIABLE   1  /* a,b,c,..,z or R                         */
 #define VPC_NUMERIC    2  /* 1,2,3,... or '123...'                   */
 #define VPC_SETTING    3  /* $format,$precision etc                  */
@@ -45,10 +52,9 @@ typedef struct _TOKEN {
 } TOKEN;
 
 typedef struct _STATEMENT {
-	int   start;  /* start position of input character buffer */
+	int   start;  /* start position of input token buffer */
 	int   end;
 } STATEMENT;
-
 
 typedef struct _FUNCTION {
 	const UCHAR *name;
@@ -56,56 +62,96 @@ typedef struct _FUNCTION {
 	int         arguments;
 } FUNCTION;
 
-/* Extern items defined in vpc.c */
-extern int      gcError;  /* flag for error(error counter in a line) */
-extern int      gnRepeat; /* repeat counter */
-extern int      gfWhile;  /* flag for 'while' */
+/* A line consists of statements, and a statement consists of tokens. */
+typedef struct _READER {
+	FILE*      file;         /* The file processing */
+	char*      Buffer;       /* Character buffer for one line to be read */
+	int        mBuffer;      /* Max size of 'Buffer' */
+	int        cBuffer;      /* character size read to gInputBuffer */
+
+	STATEMENT* Statements;   /* Token count read to gTokens of 'one' statement */
+	int        mStatements;  /* Max statement count */
+	int        cStatements;  /* statement counter used  */
+
+	TOKEN*     Tokens;       /* Token buffer */
+	int        mTokens;      /* Max tokens */
+	int        cTokens;      /* token counter */
+
+	int        iStatement;   /* Current statement processed */
+} READER;
+
+typedef struct _P_STATEMENT {
+	int start;
+	int end;
+} P_STATEMENT;
+
+typedef struct _PARSER {
+	READER* r;
+	int* TokenStack;      /* Temporaly stack for creating reverse polish */
+	int    cTokenStack;
+
+	int* TotalPolish;     /* Total buffer of reverse polish in a line */
+	int    cTotalPolish;
+
+	P_STATEMENT* PolishDivider; /* start end end points of reverse polish of each statement in a line */
+
+	int* Polish;           /* temporary reverse polish array to execute */
+	int   cPolish;
+
+	int    mSize;            /* max size of arrays above(all the same) */
+
+} PARSER;
+
+
+extern READER* OpenReader(FILE *f, int max_line);
+extern void    CloseReader(READER* r);
+extern void    SetStatement(READER* r, int i);
+extern int     GetStatement(READER* r);
+
+extern UCHAR IsDEL(UCHAR ch);
+extern int   IsEOL(UCHAR ch);
+extern int   IsEOS(UCHAR ch);
+extern int   IsEOF(UCHAR ch);
+extern UCHAR ReadLine(READER* r);
+extern int   IsDigit(UCHAR ch);
+
+extern int    TokenCount(READER* r);
+extern int    TokenSize(READER* r, int it);
+extern UCHAR  TokenChar(READER* r, int it, int ic);
+extern int    TokenWhat(READER* r, int it);
+extern int    TokenWhat2(READER* r, int it);
+extern int    TokenPriority(READER* r, int it);
+extern void   SetTokenWhat2(READER* r, int it, int w);
+extern UCHAR* TokenPTR(READER* r, int it);
+extern void   SetTokenWhat(READER* r, int it, int w);
+extern void   SetTokenPriority(READER* r, int it, int p);
+extern int    IsNumeric(READER* r, int it);
+extern int    IsToken(const UCHAR* token, READER* r, int it);
+
+/* in parser.c */
+
+
+
+
+
+
 
 extern void   InitVpc(int cInput, int cToken);
 extern void   FinishVpc(int e);
-
-
-/* Extern items defined in reader.c */
-extern UCHAR*     gInputBuffer;   /* read buffer */
-extern int        gmInputBuffer;  /* Max buffer character size*/
-extern int        gcInputBuffer;  /* Character size read to gInputBuffer */
-
-extern TOKEN*     gTokens;        /* gTokens[gmTokens] ,gTokens[i] corresponds to gTokens[i] */
-extern TOKEN*     gTokens;        /* Token buffer */
-extern int        gmTokens;       /* Max token count */
-extern int        gcTokens;       /* token count */
-extern STATEMENT* gStatements;    /* statements */
-extern int        gmStatements;   /* max statement in a line */
-extern int        gcStatements;   /* statement counter */
+extern void   ClearGlobal();
 
 extern UCHAR  gDelimiters[];
 extern int    gmDelimiters;
 
-extern void   InitReader(int buffer_size, int token_size);
-extern void   FinishReader();
 extern void   ReadAndExecuteLines(FILE* f);
-extern void   DoRepeat(UCHAR* repeat);
-extern void   DoWhile(int iStatement,int nt);
-extern int    IsToken(const UCHAR* token, int iStatement,int it);
-extern int    TokenCount(int iStatement);
-extern int    TokenSize(int iStatement,int it);
-extern UCHAR  TokenChar(int iStatement,int it, int ic);
-extern int    TokenWhat(int iStatement,int it);
-extern int    TokenWhat2(int iStatement,int it);
-extern int    TokenPriority(int iStatement,int it);
-extern int    TokenFrom(int iStatement,int it);
-extern int    TokenTo(int iStatement,int it);
-extern void   SetTokenWhat2(int iStatement,int it, int w);
-extern UCHAR* TokenPTR(int iStatement,int it);
-extern void   SetTokenWhat(int iStatement,int it, int w);
-extern void   SetTokenPriority(int iStatement,int it, int p);
-
+extern void   ParseAndExecuteRepeat(PARSER *p);
+extern void   ParseAndExecuteWhile(PARSER* p,int nt);
+extern void   ParseAndExecuteIf(PARSER* p, int nt);
+extern void ParseAndExecuteLoad(PARSER* p, int nt);
 
 /* Extern items defined in parser.c */
-extern void   InitParser();
-extern void   FinishParser();
-extern int    ParseStatement(int iStatement);
-extern int    ExecuteStatement(int iStatement);
+extern int    ParseStatement(PARSER* p);
+extern void   ExecuteStatement(PARSER *p,int iStatement);
 
 typedef struct _SETTING {
 	const UCHAR* name;
@@ -114,13 +160,12 @@ typedef struct _SETTING {
 	void* calc;
 } SETTING;
 
+
 extern SETTING gSetting[];
 extern int     gmSetting;
 
 
 /* Extern items defined in calculator.c */
-extern void         InitCalculator();
-extern void         FinishCalculator();
 extern void         ComputePolish();
 extern int          ToIntFromSz(int* pi, UCHAR* sz);
 extern int          CreateNumericWorkVariable(UCHAR* szN);
@@ -135,8 +180,6 @@ extern int          gmWorkVariables;
 extern int          EnsureVariable(int iv, int mx);
 extern const UCHAR* FunctionName(int i);
 extern int          FunctionArguments(int i);
-extern int*         gPolish;
-extern int          gcPolish;
 
 /* Extern items define in setting.c */
 extern int   gmPrecision;
@@ -146,26 +189,32 @@ extern UCHAR gchSeparator;
 extern UCHAR gchQuote;
 extern UCHAR gchLeader;
 
-extern void SetVTitle(int iStatement);
-extern void PrintVariableTitle(FILE* f, int iStatement);
+/* print functions refferred in gSetting[].print  */
+extern void PrintTitle        (PARSER* p, FILE* f);
+extern void PrintFormat       (PARSER* p, FILE* f);
+extern void PrintPrecision    (PARSER* p, FILE* f);
+extern void PrintIterations   (PARSER* p, FILE* f);
+extern void PrintRound        (PARSER* p, FILE* f);
+extern void PrintVariableTitle(PARSER* p,FILE* f);
+
+/* setting functions refferred in gSetting[].calc  */
+extern void DoTitle(PARSER* p);
+extern void DoFormat(PARSER* p);
+extern void DoPrecision(PARSER* p);
+extern void DoIterations(PARSER* p);
+extern void DoRound(PARSER* p);
+extern void SetVTitle(PARSER* p);
+
+
+
 extern void OutputVariableTitle(FILE* f, UCHAR chv);
-extern void PrintFormat();
-extern void PrintFormat(FILE* f);
-extern void PrintPrecision(FILE* f);
-extern void PrintRound(FILE* f);
-extern void PrintIterations(FILE* f);
-extern void PrintTitle(FILE* f);
 extern void PrintVariable(FILE* f, UCHAR chv);
-extern void DoPrint(int iStatement);
-extern void DoSetting(int iStatement);
-extern void DoTitle(int iStatement);
-extern void DoFormat(int iStatement);
-extern void DoPrecision(int iStatement);
-extern void DoIterations(int iStatement);
-extern void DoRound(int iStatement);
+
+extern void DoPrint(PARSER* p);
+extern void DoSetting(PARSER* p);
 
 /* Extern items define in io.c */
 extern void DoRead  (UCHAR* inFile);
-extern void DoWrite (UCHAR* otFile);
+extern void DoWrite (PARSER *p,UCHAR* otFile);
 
 /* --- end of vpc.h --- */

@@ -9,11 +9,6 @@
  */
 #include "vpc.h"
 
-static int* gStack  = 0; /* stack for creating reverse polish */
-static int  gcStack = 0;
-
-int* gPolish = 0;
-int  gcPolish = 0;
 
 SETTING gSetting[] = {
 	{"$title",VPC_SETTING,PrintTitle,DoTitle},
@@ -50,174 +45,117 @@ SETTING gSetting[] = {
 };
 int gmSetting = sizeof(gSetting) / sizeof(gSetting[0]);
 
-void InitParser()
+void CloseParser(PARSER* p)
 {
-	if (gStack  != NULL) free(gStack);
-	if (gPolish != NULL) free(gPolish);
-	gStack  = calloc(gmTokens, sizeof(int));
-	gPolish = calloc(gmTokens, sizeof(int));
-	if (gStack == NULL|| gPolish == NULL) {
-		FATAL(fprintf(stderr, "SYSTEM_ERROR: memory allocation failed: stack(%d)\n", gmTokens));
-	}
+	if (p == NULL) return;
+	if (p->r) CloseReader(p->r);
+	if (p->TokenStack != NULL) free(p->TokenStack);
+	if (p->Polish != NULL) free(p->Polish);
+	if (p->TotalPolish != NULL) free(p->TotalPolish);
+	if (p->PolishDivider != NULL) free(p->PolishDivider);
+	free(p);
 }
 
-void FinishParser()
+PARSER *OpenParser(FILE *f,int mToken)
 {
-	if (gStack  != NULL) free(gStack);
-	if (gPolish != NULL) free(gPolish);
-	gStack  = NULL;
-	gPolish = NULL;
-}
-
-static int IsDigit(UCHAR ch)
-{
-	if (ch == '0' || ch == '1' || ch == '2' || ch == '3' || ch == '4' || ch == '5' || ch == '6' || ch == '7' || ch == '8' || ch == '9') return 1;
-	return 0;
-}
-
-static int IsNumeric(int iStatement,int it)
-{
-	int ixs        = 0;
-	int ixe        = TokenSize(iStatement,it)-1;
-	UCHAR ch       = TokenChar(iStatement,it, 0);
-	int   cDot = 0;
-
-	int   cd       = 0;
-	int   cSign    = 0;
-
-	int   cE       = 0;
-	int   cEDigits = 0;
-	int   cESign   = 0;
-
-	int i;
-
-	if(IsToken("NaN",iStatement,it)) {
-		SetTokenWhat2(iStatement, it, 3); /* NaN */
-		SetTokenWhat(iStatement, it, VPC_NUMERIC);
-		return 1;
+	PARSER* p = calloc(1, sizeof(PARSER));
+	if (p == NULL) {
+		ERROR(fprintf(stderr, "SYSTEM_ERROR: failed to allocate PARSER structur.\n"));
+		return NULL;
 	}
-	if (IsToken("Infinity", iStatement, it)) {
-		SetTokenWhat2(iStatement, it, 4); /* Infinity */
-		SetTokenWhat(iStatement, it, VPC_NUMERIC);
-		return 1;
-	}
-	if (IsToken("+Infinity", iStatement, it)) {
-		SetTokenWhat2(iStatement, it, 4); /* +Infinity */
-		SetTokenWhat(iStatement, it, VPC_NUMERIC);
-		return 1;
-	}
-	if (IsToken("-Infinity", iStatement, it)) {
-		SetTokenWhat2(iStatement, it, 5); /* -Infinity */
-		SetTokenWhat(iStatement, it, VPC_NUMERIC);
-		return 1;
+	p->r = OpenReader(f, mToken * 2);
+	if (p->r == NULL) goto Error;
+
+	p->TokenStack = calloc(mToken, sizeof(int));
+	if (p->TokenStack == NULL) {
+		ERROR(fprintf(stderr, "SYSTEM_ERROR: failed to allocate token stack memory.\n"));
+		goto Error;
 	}
 
-	for (i = ixs; i <= ixe; ++i) {
-		ch = TokenChar(iStatement,it, i);
-		if(isspace(ch)||ch == gchSeparator) continue;
-		if (IsDigit(ch))       {
-			if (cE == 0) cd++;
-			else         cEDigits++;
-			continue;
-		}
-		if (ch == '+' || ch == '-') {
-			if (cE == 0) {
-				if (cd > 0) return 0;
-				if (cSign++ > 0) return 0;
-			}
-			else {
-				if (cEDigits > 0) return 0;
-				if (cESign++ > 0) return 0;
-			}
-		} else
-		if (ch == 'E' || ch == 'e' || ch == 'D' || ch == 'd') {
-			if (cd <= 0)  return 0;
-			if (cE++ > 0) return 0;
-		} else
-		if (ch == '.') {
-			if (cDot++ > 0) return 0;
-			if (cE     > 0) return 0;
-			if (cd    <= 0) return 0;
-		}
-		else {
-			return 0;
-		}
+	p->Polish = calloc(mToken, sizeof(int));
+	if (p->Polish == NULL) {
+		ERROR(fprintf(stderr, "SYSTEM_ERROR: failed to allocate temporary reverse polish memory.\n"));
+		goto Error;
 	}
-	if (cE > 0 && cEDigits == 0) return 0;
-	if (cd <= 0)                 return 0;
 
-	if (cE > 0 || cDot > 0) SetTokenWhat2(iStatement,it,2); /* Floating point number. */
-	else                    SetTokenWhat2(iStatement,it,1); /* Integer number. */
-	SetTokenWhat(iStatement,it,VPC_NUMERIC);
-	return 1;                         /* Yes numeric(Integer or floating) */
+	p->TotalPolish = calloc(mToken, sizeof(int));
+	if (p->TotalPolish == NULL) {
+		ERROR(fprintf(stderr, "SYSTEM_ERROR: failed to allocate total reverse polish memory.\n"));
+		goto Error;
+	}
+
+	p->PolishDivider = calloc(mToken, sizeof(P_STATEMENT));
+	if (p->PolishDivider == NULL) {
+		ERROR(fprintf(stderr, "SYSTEM_ERROR: failed to allocate memory the rerse polish for each statement.\n"));
+		goto Error;
+	}
+	p->mSize = mToken;
+	return p;
+
+Error:
+	CloseParser(p);
+	return NULL;
 }
 
-static void PrintToken(FILE* f,int iStatement, int it)
+
+static void PrintToken(FILE* f,READER *r, int it)
 {
-	fprintf(f, "%s",TokenPTR(iStatement,it));
+	fprintf(f, "%s",TokenPTR(r,it));
 }
 
-int IsToken(const UCHAR* token,int iStatement, int it)
-{
-	int nc = TokenSize(iStatement,it);
-	int i;
-	if (strlen(token) != nc) return 0;
-	for (i = 0; i < nc; ++i) { if (token[i] != TokenChar(iStatement, it, i)) return 0; }
-	return 1;
-}
 
-static int IsVariable(int iStatement,int it)
+static int IsVariable(READER *r,int it)
 {
 	int ich;
 	UCHAR ch;
 
-	SetTokenWhat (iStatement,it,0);
-	SetTokenWhat2(iStatement,it, 0);
+	SetTokenWhat (r,it,0);
+	SetTokenWhat2(r,it, 0);
 
-	if (TokenSize(iStatement,it) != 1) return 0;
-	ch = TokenChar(iStatement,it, 0);
-	if (ch == 'R'           ) { SetTokenWhat(iStatement,it,VPC_VARIABLE);  SetTokenWhat2(iStatement,it,26);  goto More; }
+	if (TokenSize(r,it) != 1) return 0;
+	ch = TokenChar(r,it, 0);
+	if (ch == 'R'           ) { SetTokenWhat(r,it,VPC_VARIABLE);  SetTokenWhat2(r,it,26);  goto More; }
 	ich = ch - 'a';
-	if (ich >= 0 && ich < 26) { SetTokenWhat(iStatement,it,VPC_VARIABLE);  SetTokenWhat2(iStatement,it,ich); goto More; }
+	if (ich >= 0 && ich < 26) { SetTokenWhat(r,it,VPC_VARIABLE);  SetTokenWhat2(r,it,ich); goto More; }
 	return 0;
 
 More:
-	if (it+1>=TokenCount(iStatement)) return 1;
-	if (IsToken("(", iStatement, it+1)) {
+	if (it+1>=TokenCount(r)) return 1;
+	if (IsToken("(", r, it+1)) {
 		ERROR(fprintf(stderr, "Error: syntax invalid(variable is not a function).\n"));
 		return 0;
 	}
 	return 1;
 }
 
-static int IsOperator(int iStatement,int it)
+static int IsOperator(READER *r,int it)
 {
 	int ich;
 	UCHAR ch;
 
-	SetTokenWhat(iStatement,it,0);
-	SetTokenPriority(iStatement,it,0);
+	SetTokenWhat(r,it,0);
+	SetTokenPriority(r,it,0);
 
-	if (TokenSize(iStatement,it) != 1) return 0;
-	ch = TokenChar(iStatement, it, 0);
+	if (TokenSize(r,it) != 1) return 0;
+	ch = TokenChar(r, it, 0);
 
-	if (ch == '(') { SetTokenWhat(iStatement, it,VPC_BRA);       SetTokenPriority(iStatement, it, 0); return 1; }
-	if (ch == ')') { SetTokenWhat(iStatement, it,VPC_KET);       SetTokenPriority(iStatement, it, 1); return 1; }
-	if (ch == '?') { SetTokenWhat(iStatement, it,VPC_PRINT);     SetTokenPriority(iStatement, it, 0); return 1; }
-	if (ch == '=') { SetTokenWhat(iStatement, it,VPC_BOPERATOR); SetTokenPriority(iStatement, it,10); return 1; }
-	if (ch == '*') { SetTokenWhat(iStatement, it,VPC_BOPERATOR); SetTokenPriority(iStatement, it,40); return 1; }
-	if (ch == '/') { SetTokenWhat(iStatement, it,VPC_BOPERATOR); SetTokenPriority(iStatement, it,40); return 1; }
-	if (ch == ',') { SetTokenWhat(iStatement, it,VPC_COMMA);     SetTokenPriority(iStatement, it, 0); return 1; }
+	if (ch == '(') { SetTokenWhat(r, it,VPC_BRA);       SetTokenPriority(r, it, 0); return 1; }
+	if (ch == ')') { SetTokenWhat(r, it,VPC_KET);       SetTokenPriority(r, it, 1); return 1; }
+	if (ch == '?') { SetTokenWhat(r, it,VPC_PRINT);     SetTokenPriority(r, it, 0); return 1; }
+	if (ch == '=') { SetTokenWhat(r, it,VPC_BOPERATOR); SetTokenPriority(r, it,10); return 1; }
+	if (ch == '*') { SetTokenWhat(r, it,VPC_BOPERATOR); SetTokenPriority(r, it,40); return 1; }
+	if (ch == '/') { SetTokenWhat(r, it,VPC_BOPERATOR); SetTokenPriority(r, it,40); return 1; }
+	if (ch == ',') { SetTokenWhat(r, it,VPC_COMMA);     SetTokenPriority(r, it, 0); return 1; }
 
 	if (ch == '+' || ch == '-') {
-		SetTokenWhat(iStatement, it, VPC_BOPERATOR); SetTokenPriority(iStatement, it,20);
+		SetTokenWhat(r, it, VPC_BOPERATOR); SetTokenPriority(r, it,20);
 		if (it <= 0) {
-			SetTokenWhat(iStatement, it,VPC_UOPERATOR); SetTokenPriority(iStatement, it,200);
+			SetTokenWhat(r, it,VPC_UOPERATOR); SetTokenPriority(r, it,200);
 			return 1;
 		}
-		ich = TokenWhat(iStatement, it - 1);
+		ich = TokenWhat(r, it - 1);
 		if (ich == VPC_BRA || ich == VPC_COMMA || ich == VPC_BOPERATOR || ich == VPC_UOPERATOR) {
-			SetTokenWhat(iStatement, it,VPC_UOPERATOR); SetTokenPriority(iStatement, it,200);
+			SetTokenWhat(r, it,VPC_UOPERATOR); SetTokenPriority(r, it,200);
 			return 1;
 		}
 		return 1;
@@ -225,66 +163,66 @@ static int IsOperator(int iStatement,int it)
 	return 0;
 }
 
-static int IsSetting(int iStatement, int it)
+static int IsSetting(READER *r, int it)
 {
 	int i;
 
-	SetTokenWhat(iStatement, it, 0);
-	SetTokenWhat2(iStatement, it, 0);
+	SetTokenWhat(r, it, 0);
+	SetTokenWhat2(r, it, 0);
 
 	for (i = 0; i < gmSetting; ++i) {
-		if (strcmp(TokenPTR(iStatement, it),gSetting[i].name)==0) { SetTokenWhat(iStatement, it, VPC_SETTING); SetTokenWhat2(iStatement, it, 0); return 1; }
+		if (strcmp(TokenPTR(r, it),gSetting[i].name)==0) { SetTokenWhat(r, it, VPC_SETTING); SetTokenWhat2(r, it, 0); return 1; }
 	}
 	return 0;
 }
 
-static int IsFunction(int iStatement,int it)
+static int IsFunction(READER *r,int it)
 {
 	int i;
 	int cb = 0;
 	int cc = 0;
 	int na = 0;
-	int nt = TokenCount(iStatement);
-	SetTokenWhat(iStatement, it, 0);
-	SetTokenWhat2(iStatement, it, 0);
+	int nt = TokenCount(r);
+	SetTokenWhat(r, it, 0);
+	SetTokenWhat2(r, it, 0);
 
 	for (i = 0; i < gmFunctions; ++i) {
-		if (IsToken(FunctionName(i), iStatement, it)) {
-			SetTokenWhat(iStatement,it, VPC_FUNC); SetTokenWhat2(iStatement,it, i);   na = FunctionArguments(i); goto ArgNoCheck;
+		if (IsToken(FunctionName(i), r, it)) {
+			SetTokenWhat(r,it, VPC_FUNC); SetTokenWhat2(r,it, i);   na = FunctionArguments(i); goto ArgNoCheck;
 		}
 	}
 	return 0;
 
 ArgNoCheck: /* check on argument number */
 
-	if (it >= gStatements[iStatement].end || !IsToken("(", iStatement, it + 1)) goto Error;
+	if (it >= r->Statements[r->iStatement].end || !IsToken("(", r, it + 1)) goto Error;
 	cb = 0;
 	for (i = it+1; i < nt; ++i) {
-		if (IsToken("(", iStatement,i)) {
+		if (IsToken("(", r,i)) {
 			++cb;
 			if ( i+1 >= nt )               goto Error;
-			if (TokenSize(iStatement,i + 1) > 1)      continue;
-			if (IsToken("+", iStatement, i - 1))       continue;
-			if (IsToken("-", iStatement, i - 1))       continue;
-			if (IsToken(",", iStatement, i + 1))       goto Error;
-			if (IsToken("*", iStatement, i + 1))       goto Error;
-			if (IsToken("/", iStatement, i + 1))       goto Error;
+			if (TokenSize(r,i + 1) > 1)      continue;
+			if (IsToken("+", r, i - 1))       continue;
+			if (IsToken("-", r, i - 1))       continue;
+			if (IsToken(",", r, i + 1))       goto Error;
+			if (IsToken("*", r, i + 1))       goto Error;
+			if (IsToken("/", r, i + 1))       goto Error;
 			continue;
 		}
-		if (IsToken(")", iStatement,i)) {
+		if (IsToken(")", r,i)) {
 			if (--cb <= 0)                 break;
-			if (TokenSize(iStatement,i - 1) > 1)      continue;
-			if (IsToken(",", iStatement,i - 1))       goto Error;
-			if (IsToken("+", iStatement,i - 1))       goto Error;
-			if (IsToken("-", iStatement,i - 1))       goto Error;
-			if (IsToken(",", iStatement,i - 1))       goto Error;
-			if (IsToken("*", iStatement,i - 1))       goto Error;
-			if (IsToken("/", iStatement,i - 1))       goto Error;
+			if (TokenSize(r,i - 1) > 1)      continue;
+			if (IsToken(",", r,i - 1))       goto Error;
+			if (IsToken("+", r,i - 1))       goto Error;
+			if (IsToken("-", r,i - 1))       goto Error;
+			if (IsToken(",", r,i - 1))       goto Error;
+			if (IsToken("*", r,i - 1))       goto Error;
+			if (IsToken("/", r,i - 1))       goto Error;
 			continue;
 		}
 
 		if (cb == 1) {
-			if (IsToken(",", iStatement,i)) { ++cc; continue; }
+			if (IsToken(",", r,i)) { ++cc; continue; }
 		}
 	}
 
@@ -295,89 +233,89 @@ ArgNoCheck: /* check on argument number */
 
 Error:
 	ERROR(fprintf(stderr, "Error:'"));
-	PrintToken(stderr, iStatement, it);
+	PrintToken(stderr, r, it);
 	ERROR(fprintf(stderr, "' syntax invalid(illegal arguments or illegal number of arguments).\n"));
 	return 0;
 }
 
-static int ParseToken(int iStatement,int it)
+static int ParseToken(PARSER *p,int it)
 {
-	if (IsVariable (iStatement, it)) return 1;
-	if (IsOperator (iStatement, it)) return 1;
-	if (IsNumeric  (iStatement, it)) return 1;
-	if (IsSetting  (iStatement, it)) return 1;
-	if (IsFunction (iStatement, it)) return 1;
-	SetTokenWhat(iStatement, it,VPC_UNDEFINED);
-	SetTokenWhat2(iStatement, it, 0);
+	READER* r = p->r;
+	if (IsVariable (r, it)) return 1;
+	if (IsOperator (r, it)) return 1;
+	if (IsNumeric  (r, it)) return 1;
+	if (IsSetting  (r, it)) return 1;
+	if (IsFunction (r, it)) return 1;
+	SetTokenWhat(r, it,VPC_UNDEFINED);
+	SetTokenWhat2(r, it, 0);
 	return 0;
 }
 
-static void ClearStack()
+static void ClearTokenStack(PARSER *p)
 {
-	gcStack  = 0;
-	gcPolish = 0;
+	p->cTokenStack  = 0;
+	p->cPolish      = 0;
 }
 
-static int StackSize()
+static int TokenStackSize(PARSER *p)
 {
-	return gmTokens;
+	return p->mSize;
 }
 
-static int Push(int i)
+static int PushToken(PARSER *p,int i)
 {
-	if (gcStack >= StackSize()) {
-		ERROR(fprintf(stderr, "Error: stack overflowed(%d).\n", StackSize()));
+	if (p->cTokenStack >= TokenStackSize(p)) {
+		ERROR(fprintf(stderr, "Error: stack overflowed(%d).\n", TokenStackSize(p)));
 		return -1;
 	}
-	gStack[gcStack++] = i;
-	return gcStack;
+	p->TokenStack[p->cTokenStack++] = i;
+	return p->cTokenStack;
 }
 
-static int Empty()
-{
-	return gcStack == 0;
-}
+static int IsTokenStackEmpty(PARSER *p) { return p->cTokenStack == 0; }
 
-static int Pop()
+static int PopToken(PARSER* p)
 {
-	if (gcStack <= 0) {
+	if (p->cTokenStack <= 0) {
 		ERROR(fprintf(stderr, "Error: stack underflowed.\n"));
 		return -1;
 	}
-	return gStack[--gcStack];
+	return p->TokenStack[--p->cTokenStack];
 }
 
-static int Top()
+static int TopToken(PARSER *p)
 {
-	if (gcStack <= 0) {
+	if (p->cTokenStack <= 0) {
 		ERROR(fprintf(stderr, "Error: stack underflowed.\n"));
 		return -1;
 	}
-	return gStack[gcStack - 1];
+	return p->TokenStack[p->cTokenStack - 1];
 }
 
 /* Put token(==it) to reverse polish array */
-static void PutPolish(int it)
+static void PutPolish(PARSER *p,int it)
 {
-	gPolish[gcPolish++] = it;
+	int iStatement = (p->r)->iStatement;
+	p->PolishDivider[iStatement].end = p->cTotalPolish;
+	p->TotalPolish[p->cTotalPolish++] = it;
 }
 
-static int ParsePolish(int iStatement)
+static int ParsePolish(PARSER *p)
 {
 	int i;
 	int ci = 0;
 	int token;
-
+	int iStatement = (p->r)->iStatement;
 #ifdef _DEBUG
 	printf("R_Polish:");
 #endif
 
-	for (i = 0; i < gcPolish; ++i) {
-		token = gPolish[i];
+	for (i = p->PolishDivider[iStatement].start; i <= p->PolishDivider[iStatement].end; ++i) {
+		token = p->TotalPolish[i];
 #ifdef _DEBUG
-		printf(" %s ",TokenPTR(iStatement,token));
+		printf(" %s ",TokenPTR(p->r,token));
 #endif
-		switch(TokenWhat(iStatement,token))
+		switch(TokenWhat(p->r,token))
 		{
 			case VPC_VARIABLE:
 			case VPC_NUMERIC:
@@ -393,7 +331,7 @@ static int ParsePolish(int iStatement)
 				}
 				break;
 			case VPC_FUNC:
-				ci -= (abs(FunctionArguments(TokenWhat2(iStatement,token)))-1);
+				ci -= (abs(FunctionArguments(TokenWhat2(p->r,token)))-1);
 				if (ci < 1) {
 					ERROR(fprintf(stderr, "Error: syntax error.\n"));
 					return 0;
@@ -412,74 +350,87 @@ static int ParsePolish(int iStatement)
 	return 0;
 }
 
-static int MkReversePolish(int iStatement)
+static int MkReversePolish(PARSER *p)
 {
 	int i;
 	int nc;
 	int it;
 	int order;
 	int token;
+	int iStatement = (p->r)->iStatement;
+	int nt = TokenCount(p->r);
 
-	ClearStack();
+	ClearTokenStack(p);
 
-	int nt = TokenCount(iStatement);
+	if (iStatement > 0) {
+		int j;
+		for (j = 0; j < iStatement; ++j) {
+			if (p->PolishDivider[j].start > p->PolishDivider[j].end) continue;
+			p->PolishDivider[iStatement].start = p->PolishDivider[j].end + 1;
+		}
+	} 
+	else {
+		p->PolishDivider[iStatement].start = 0;
+	}
+	p->PolishDivider[iStatement].end = p->PolishDivider[iStatement].start - 1;
+
 	for (it = 0; it < nt; ++it) {
-		switch (TokenWhat(iStatement,it))
+		switch (TokenWhat(p->r,it))
 		{
 		case VPC_VARIABLE:
 		case VPC_NUMERIC:
-			PutPolish(it);
+			PutPolish(p, it);
 			break;
 		case VPC_BRA:
-			Push(it); /* '(' */
+			PushToken(p,it); /* '(' */
 			break;
 		case VPC_KET: /* ')' */
-			while (TokenWhat(iStatement,token = Pop()) != VPC_BRA) {
-				PutPolish(token);
+			while (TokenWhat(p->r,token = PopToken(p)) != VPC_BRA) {
+				PutPolish(p, token);
 			}
-			if (TokenWhat(iStatement,Top()) == VPC_FUNC) PutPolish(Pop());
+			if (TokenWhat(p->r, TopToken(p)) == VPC_FUNC) PutPolish(p, PopToken(p));
 			break;
 		case VPC_UOPERATOR:
-			if(TokenChar(iStatement,it,0)=='-') Push(it); /* Unary operator: '+' is ignored. */
+			if(TokenChar(p->r,it,0)=='-') PushToken(p,it); /* Unary operator: '+' is ignored. */
 			break;
 		case VPC_BOPERATOR:
-			if (Empty()) Push(it);
+			if (IsTokenStackEmpty(p)) PushToken(p,it);
 			else {
-				order = TokenPriority(iStatement,it); /* info == operator priority */
-				while (!Empty() && TokenPriority(iStatement,Top()) >= order) {
-					PutPolish(Pop());
+				order = TokenPriority(p->r,it); /* info == operator priority */
+				while (!IsTokenStackEmpty(p) && TokenPriority(p->r, TopToken(p)) >= order) {
+					PutPolish(p, PopToken(p));
 				}
-				if (Push(it) < 0) return -1;
+				if (PushToken(p,it) < 0) return -1;
 			}
 			break;
 		case VPC_COMMA:
-			while (!Empty() && TokenWhat(iStatement,token = Top()) != VPC_BRA) {
-				PutPolish(Pop());
+			while (!IsTokenStackEmpty(p) && TokenWhat(p->r,token = TopToken(p)) != VPC_BRA) {
+				PutPolish(p, PopToken(p));
 			}
 			break;
 		case VPC_FUNC:
-			Push(it); /* sin cos ... */
+			PushToken(p,it); /* sin cos ... */
 			break;
 		default:
 			ERROR(fprintf(stderr, "Error: syntax error("));
-			nc = TokenSize(iStatement,it);
+			nc = TokenSize(p->r,it);
 			for (i = 0; i < nc; ++i) {
-				fprintf(stderr, "%c", TokenChar(iStatement,it, i));
+				fprintf(stderr, "%c", TokenChar(p->r,it, i));
 			}
 			fprintf(stderr, ").\n");
 			return -1;
 		}
 	}
-	while (!Empty()) PutPolish(Pop());
+	while (!IsTokenStackEmpty(p)) PutPolish(p, PopToken(p));
 	return 0;
 }
 
-static int ParseCalculation(int iStatement)
+static int ParseCalculation(PARSER *p)
 {
-	if (TokenWhat(iStatement,0) != VPC_VARIABLE) goto SyntaxError;
-	if (TokenChar(iStatement,1, 0) != '=')       goto SyntaxError;
-	if (MkReversePolish(iStatement) < 0) return 0;
-	if (!ParsePolish(iStatement))        return 0;
+	if (TokenWhat(p->r,0) != VPC_VARIABLE) goto SyntaxError;
+	if (TokenChar(p->r,1, 0) != '=')       goto SyntaxError;
+	if (MkReversePolish(p) < 0) return 0;
+	if (!ParsePolish(p))        return 0;
 	return 1;
 
 SyntaxError:
@@ -488,63 +439,108 @@ SyntaxError:
 }
 
 /* Parse and call calculation routines in calculator.c if the statement is valid. */
-int ExecuteStatement(int iStatement)
+void ExecuteStatement(PARSER *p,int iStatement)
 {
 	int nt;
 
-	nt = TokenCount(iStatement);
+	if (iStatement >= (p->r)->cStatements) return;
+	SetStatement(p->r, iStatement);
 
-	if (nt <= 0)                                   return  1;
-	if (nt == 1 && IsToken("quit", iStatement, 0)) return -1;
+	if (gfBreak) return;
 
-	ClearStack();
+	nt = TokenCount(p->r);
 
-	switch (TokenChar(iStatement, 0, 0))
+	if (nt <= 0)                             goto Next;
+	if (nt == 1 && IsToken("quit", p->r, 0)) {
+		gfQuit = 1;
+		return;
+	}
+
+	ClearTokenStack(p);
+
+	if (TokenWhat(p->r, 0) == VPC_VARIABLE) {
+		int i;
+		/* Copy reverse polish to execution polish buffer */
+		p->cPolish = 0;
+		for (i = p->PolishDivider[(p->r)->iStatement].start; i <= p->PolishDivider[(p->r)->iStatement].end; ++i) {
+			p->Polish[p->cPolish++] = p->TotalPolish[i];
+		}
+		ComputePolish(p);
+		goto Next;
+	}
+
+	switch (TokenChar(p->r, 0, 0))
 	{
 	case '$':
-		DoSetting(iStatement); /* In setting.c */
-		return 1;
+		DoSetting(p); /* In setting.c */
+		goto Next;
 	case '?':
-		DoPrint(iStatement);         /* In calculaot.c */
-		return 1;
+		DoPrint(p);         /* In calculaot.c */
+		goto Next;
 	}
 
-	if (IsToken("read", iStatement, 0) && nt == 2) { DoRead  (TokenPTR(iStatement, 1)); return 1; }
-	if (IsToken("write", iStatement, 0) && nt == 2) { DoWrite (TokenPTR(iStatement, 1)); return 1; }
-	if (IsToken("repeat", iStatement, 0) && nt == 2) { DoRepeat(TokenPTR(iStatement, 1)); return 1; }
-	if (IsToken("while", iStatement, 0) && (nt == 4||nt==5)) { DoWhile(iStatement, nt); return 1; }
-
-	if (TokenWhat(iStatement, 0) == VPC_VARIABLE) {
-		if (ParseCalculation(iStatement)) {
-			ComputePolish(iStatement);
-		}
-	} else {
-		ERROR(fprintf(stderr, "Error: Syntax error.\n"));
+	if (IsToken("break", p->r, 0) && nt == 1) {
+		gfBreak = 1;
+		return;
 	}
-	return 1;
+
+	if (IsToken("load", p->r, 0) && nt > 2) {
+		ParseAndExecuteLoad(p,nt);
+		return;
+	}
+
+	if (IsToken("repeat", p->r, 0) && nt == 2) {
+		ParseAndExecuteRepeat(p);
+		return; /* "repeat" executes to the end of line */
+	}
+	if (IsToken("while", p->r, 0) && (nt == 4 || nt == 5)) 	{
+		ParseAndExecuteWhile(p, nt);
+		return; 
+	}
+	if (IsToken("if", p->r, 0) && (nt == 4 || nt == 5)) {
+		ParseAndExecuteIf(p, nt);
+		return;
+	}
+
+	if (IsToken("read", p->r, 0) && nt == 2)           {
+		DoRead  (TokenPTR(p->r, 1));
+		goto Next;
+	} 
+	if (IsToken("write", p->r, 0) && nt == 2)          {
+		DoWrite (p,TokenPTR(p->r, 1));
+		goto Next;
+	}
+
+
+	ERROR(fprintf(stderr, "Error: Syntax error(%s).\n",TokenPTR(p->r,0)));
+	return;
+
+Next:
+	if (IsError()) return;
+	ExecuteStatement(p, iStatement + 1);
 }
 
-int ParseStatement(int iStatement)
+int ParseStatement(PARSER *p)
 {
 	int i;
 	int nt;
 	int cBracket = 0;
 
-	nt = TokenCount(iStatement);
+	nt = TokenCount(p->r);
 
 	if (nt <= 0)                                   return 1;
-	if (nt == 1 && IsToken("quit", iStatement, 0)) return 1;
+	if (nt == 1 && IsToken("quit", p->r, 0)) return 1;
 
 	for (i = 0; i < nt; ++i) {
-		if (IsToken("(", iStatement, i)) ++cBracket;
-		if (IsToken(")", iStatement, i)) {
+		if (IsToken("(", p->r, i)) ++cBracket;
+		if (IsToken(")", p->r, i)) {
 			if (cBracket <= 0) {
 				ERROR(fprintf(stderr, "Error: brackets unbalanced.\n"));
 				return 0;
 			}
 			--cBracket;
 		}
-		ParseToken(iStatement, i);
+		ParseToken(p, i);
 	}
 
 	if (cBracket != 0) {
@@ -552,51 +548,134 @@ int ParseStatement(int iStatement)
 		return 0;
 	}
 
-	switch (TokenChar(iStatement, 0, 0))
+	switch (TokenChar(p->r, 0, 0))
 	{
 	case '$':
 		if (nt != 3) {
 			ERROR(fprintf(stderr, " Syntax error.\n"));
 			return 0;
 		}
-		if (IsToken("=", iStatement, 1)) return 1;
+		if (IsToken("=", p->r, 1)) return 1;
 		ERROR(fprintf(stderr, " Syntax error (=).\n"));
 		return 0;
 	case '?':
-		if (TokenCount(iStatement) != 2) { ERROR(fprintf(stderr, " Syntax error.\n")); return 0; }
+		if (TokenCount(p->r) != 2) { ERROR(fprintf(stderr, " Syntax error.\n")); return 0; }
 		return 1;
 	}
-
-	if (IsToken("read", iStatement, 0) && nt == 2) return 1;
-	if (IsToken("write", iStatement, 0) && nt == 2) return 1;
-	if (IsToken("repeat", iStatement, 0) && nt == 2) return 1;
-	if (IsToken("while", iStatement, 0) && (nt == 4 || nt == 5)) {
+	if (IsToken("break", p->r, 0) && nt == 1)  return 1;
+	if (IsToken("load", p->r, 0) && nt > 2)    return 1;
+	if (IsToken("read", p->r, 0) && nt == 2)   return 1;
+	if (IsToken("write", p->r, 0) && nt == 2)  return 1;
+	if (IsToken("repeat", p->r, 0) && nt == 2) return 1;
+	if (IsToken("while", p->r, 0) && (nt == 4 || nt == 5)) {
 		int  nm = 0;
-		char chv1 = TokenChar(iStatement, 1, 0);
+		char chv1 = TokenChar(p->r, 1, 0);
 		char chv2;
 		if (nt == 4) {
-			if (!IsToken(">", iStatement, 2) && !IsToken("<", iStatement, 2)) goto Error;
-			chv2 = TokenChar(iStatement, 3, 0);
+			if (!IsToken(">", p->r, 2) && !IsToken("<", p->r, 2)) goto Error;
+			chv2 = TokenChar(p->r, 3, 0);
 		}
 		else {
-			if (!IsToken("=", iStatement, 3) ) goto Error;
-			if (TokenSize(iStatement, 2) != 1) goto Error;
-			chv2 = TokenChar(iStatement, 2, 0);
+			if (!IsToken("=", p->r, 3) ) goto Error;
+			if (TokenSize(p->r, 2) != 1) goto Error;
+			chv2 = TokenChar(p->r, 2, 0);
 			if ((chv2 != '=') && (chv2 != '!') && (chv2 != '>') && (chv2 != '<')) goto Error;
-			chv2 = TokenChar(iStatement, 4, 0);
+			chv2 = TokenChar(p->r, 4, 0);
 		}
 		chv1 = chv1 - '0';
 		chv2 = chv2 - '0';
 		if ((chv1 >= 0 && chv1<=9) && (chv2 >= 0 && chv2<=9)) {
-			ERROR(fprintf(stderr, "Error: At least one variable must be specified(%s).\n", TokenPTR(iStatement, 0)));
+			ERROR(fprintf(stderr, "Error: At least one variable must be specified(%s).\n", TokenPTR(p->r, 0)));
+			goto Error;
+		}
+		return 1;
+	}
+	if (IsToken("if", p->r, 0) && (nt == 4 || nt == 5)) {
+		int  nm = 0;
+		char chv1 = TokenChar(p->r, 1, 0);
+		char chv2;
+		if (nt == 4) {
+			if (!IsToken(">", p->r, 2) && !IsToken("<", p->r, 2)) goto Error;
+			chv2 = TokenChar(p->r, 3, 0);
+		}
+		else {
+			if (!IsToken("=", p->r, 3)) goto Error;
+			if (TokenSize(p->r, 2) != 1) goto Error;
+			chv2 = TokenChar(p->r, 2, 0);
+			if ((chv2 != '=') && (chv2 != '!') && (chv2 != '>') && (chv2 != '<')) goto Error;
+			chv2 = TokenChar(p->r, 4, 0);
+		}
+		chv1 = chv1 - '0';
+		chv2 = chv2 - '0';
+		if ((chv1 >= 0 && chv1 <= 9) && (chv2 >= 0 && chv2 <= 9)) {
+			ERROR(fprintf(stderr, "Error: At least one variable must be specified(%s).\n", TokenPTR(p->r, 0)));
 			goto Error;
 		}
 		return 1;
 	}
 
-	if (TokenWhat(iStatement, 0) == VPC_VARIABLE) return ParseCalculation(iStatement);
+	if (TokenWhat(p->r, 0) == VPC_VARIABLE) {
+		return ParseCalculation(p);
+	}
 
 Error:
-	ERROR(fprintf(stderr, "Error: Syntax error(%s).\n",TokenPTR(iStatement,0)));
+	ERROR(fprintf(stderr, "Error: Syntax error(%s).\n",TokenPTR(p->r,0)));
 	return 0;
+}
+
+#ifdef _DEBUG
+static void PrintPolish(PARSER* p)
+{
+	int i, j;
+	READER* r = p->r;
+	for (i = 0; i < r->cStatements; ++i) {
+		printf("\n Polish(%d-%d) %d:[", p->PolishDivider[i].start, p->PolishDivider[i].end, p->PolishDivider[i].end - p->PolishDivider[i].start + 1);
+		for (j = p->PolishDivider[i].start; j <= p->PolishDivider[i].end; ++j) {
+			if (j != p->PolishDivider[i].start) printf(",");
+			printf("%s", TokenPTR(r, p->TotalPolish[j]));
+		}
+		printf("]\n");
+	}
+}
+#endif
+
+static char ExecuteLine(PARSER *p,UCHAR ch)
+{
+	int i;
+
+	if ( IsError() ) return ch;
+
+	/* No syntax error => execute statements in a line */
+	for (i = 0; i < (p->r)->cStatements; ++i) {
+		SetStatement(p->r,i);
+		ParseStatement(p);
+		if ( IsError() ) return ch;
+	}
+
+	ExecuteStatement(p,0);
+	return ch;
+}
+
+void ClearParser(PARSER* p)
+{
+	int i;
+	p->cTotalPolish = 0;
+	for (i = 0; i < (p->r)->mStatements; ++i) {
+		p->PolishDivider[i].start =  0;
+		p->PolishDivider[i].end   = -1;
+	}
+}
+
+void ReadAndExecuteLines(FILE* f)
+{
+	UCHAR ch = '\n';
+	PARSER* p = OpenParser(f,1024);
+	do {
+		if (IsEOL(ch) && f == stdin) printf("\n>");
+		ClearGlobal();
+		ClearParser(p);
+		ch = ReadLine(p->r);
+		ch = ExecuteLine(p,ch);
+	} while (!IsEOF(ch) && !IsQuit());
+	CloseParser(p);
 }
