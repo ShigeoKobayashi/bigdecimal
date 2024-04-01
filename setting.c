@@ -203,11 +203,22 @@ void DoFormat(PARSER *p)
 void DoPrecision(PARSER *p)
 {
 	int  nd;
+	VP_HANDLE v1, v2;
+	int i;
 	if (!ToIntFromSz(&nd, TokenPTR(p->r,2))) return;
 	if (nd < 20) {
 		ERROR(fprintf(stderr, "Error: negative or too small value for $precision(%d).\n", nd)); return;
 	}
 	gmPrecision = nd;
+	for (i = 0; i < gmVariables-1; ++i) {
+		if (VpIsInvalid(gVariables[i])) continue;
+		v1 = VpMemAlloc(gmPrecision);
+		if (VpIsInvalid(v1)) continue;
+		v2 = gVariables[i];
+		VpAsgn(v1, v2, 1);
+		VpFree(&v2);
+		gVariables[i] = v1;
+	}
 }
 
 void DoIterations(PARSER *p)
@@ -532,6 +543,9 @@ void ParseAndExecuteLoad(PARSER* p, int nt)
 					if (IsNumeric(r, ixt)) {
 						VP_HANDLE v = gVariables[j];
 						VpLoad(v, TokenPTR(r, ixt));
+						if (ixt > 0 && IsToken("-",r,ixt-1)) {
+							VpNegate(v);
+						}
 						if (i + 1 >= nt) goto ExecLoad;
 						if (++ixt >= TokenCount(r)) {
 							ixt = 0;

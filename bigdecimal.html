@@ -40,7 +40,6 @@ blockquote { margin-left: 15px;margin-top: 1px;}
 </head>
 
 
-
 <body>
 <h1>Bigdecimal: Variable precision decimal arithmetic C/C++ library</h1>
 <div align="right">
@@ -49,7 +48,7 @@ This software can be redistributed under <a href="https://www.gnu.org/licenses/l
 Copylight (c) 2018 Shigeo Kobayashi. All rights reserved.
 </div>
 <hr/>
-The Bigdecimal is a variable precision decimal arithmetic C/C++ library.<br/>
+<b>The Bigdecimal is a variable precision decimal arithmetic C/C++ library.</b><br/>
 Using Bigdecimal, you can obtain any number of significant digits in your computation.<p/>
 This software has been tested on Windows-10(32-bit&amp;64-bit) and Linux(32-bit CentOS-5 &amp; 64-bit CentOS-7).<br/>
 To build this software,include "bigdecimal.h" in your program and
@@ -58,10 +57,14 @@ To build this software,include "bigdecimal.h" in your program and
  <li>Windows ... follow Visual studio instructions.</li>
 </ul>
 
-<div align="right">
-<a href="http://www.tinyforest.jp/oss/bigdecimal.zip">Windows binary files(32-bit:vpc.exe,bigdecimal.dll,bigdecimal.lib) can be downloaded here.</a>
-</div>
-Use <a href="#VPC">VPC(Variale Precision Calculator bundled with Bigdecimal)</a> for your testing.
+<ul>
+<li><a href="http://www.tinyforest.jp/oss/bigdecimal.zip">Windows binary files(32-bit:vpc.exe,bigdecimal.dll,bigdecimal.lib) can be downloaded here.</a></li>
+<li><a name="VPC"/></a>
+<a href="./vpc_en.html" target="_new">VPC(Variable Precision Calculator V2) for Bigdecimal API testing</a>
+ is a simple but usefull programmable calculator using Bigdecimal API(VPC v2 is completely reorganized from v1. For detail of the VPC V2, see the VPC document).
+</li>
+</ul>
+
 <H2>Introduction</H2>
 To use Bigdecimal,"bigdecimal.h" should be included in your C/C++ source program.<br/>
 And,Bigdecimal variable must be declared before it is used.<br/>
@@ -83,7 +86,8 @@ int main(int argc, char* argv[])
     return 0;
 }
 </code></pre>
-<table>
+<table width="100%">
+<col width="30%"><col width="70%">
 <tr><th>Bigdecimal functions</th><th>meaning</th></tr>
 <tr><td> c = VpAlloc(szVal,m)</td><td>Allocates Bigdecimal variable and sets it's value to szVal.<br/>
 szVal is a character string representing any numerical value.<br/>
@@ -106,7 +110,8 @@ Bigdecimal offers <b>VpClone(a)</b> to clone(to create a new copy of a) the spec
 Bigdecimal also offers <b>VpAllocCount()</b> which is the number of Bigdecimal variables not yet freed.<p/>
 
 As the Bigdecimal variable is the container of digits,Bigdecimal offers two functions:
-<table>
+<table width="100%">
+<col width="30%"><col width="70%">
 <tr><th>Bigdecimal functions</th><th>meaning</th></tr>
 <tr><td>m = VpMaxLength(c)</td><td>m is the maximum number of digits c can store.<br/>
 m is slightly bigger than the value specified by VpAlloc() or VpMemAlloc() due to internal logic.</td></tr>
@@ -139,11 +144,9 @@ It must be noted that <u>the total number of digits obtained by the computation 
 Computation like c = a op b(op is any arithmetic operator such as +,-,*,/..),
 the resulting digits are being saved to c while the computation is going on.<br/>
 <b>Storing the resulting digits to c stops when the computation finishes or the capacity of c(=VpMaxLength(c)) is exhausted.</b><br/>
-
-
-
-                                                                                                                                <table>
-                                                                                                                                    <tr><th>Bigdecimal functions</th><th>meaning</th><th>notes</th></tr>
+                                                                                                                   <table width="100%">
+<col width="20%"><col width="40%"><col width="40%">
+<tr><th>Bigdecimal functions</th><th>meaning</th><th>notes</th></tr>
                                                                                                                                     <tr><td><b>c = VpAsgn(c,a,op)</b></td><td> c = a (op=1) or c = -a (op=-1)</td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(b)</td></tr>
                                                                                                                                     <tr><td><b>c = VpAdd(c,a,b)</b></td><td> c = a+b</td></td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(a+b)</td></tr>
                                                                                                                                     <tr><td><b>c = VpSub(c,a,b)</b></td><td> c = a-b</td></td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(a-b)</td></tr>
@@ -155,22 +158,22 @@ the resulting digits are being saved to c while the computation is going on.<br/
                                                                                                                                     <tr><td><b>c = VpFix(c,a)<br />c = VpInt(c,a)</b></td><td> copies all digits before the decimal point of a to c(|c|&gt;=1 or c=0)</td><td>  </td></tr>
                                                                                                                                     <tr><td><b>c = VpAbs(c)</b></td><td> c = |c|</td><td>  </td></tr>
                                                                                                                                     <tr><td><b>n = VpExponent(c)</b></td><td> returns n,where c=0.xxxxxxx10**n</td><td>n is an integer.</td></tr>
-                                                                                                                                    <tr><td><b>n = VpEffectiveDigits(c)</b></td><td>returns n,where n is the number of effective digits.</td><td>n is an integer for which leading and trailing 0's are not counted.  </td></tr>
-                                                                                                                                    <tr><td><b>c = VpRevertSign(c)<br />c = VpNegate(c)</b></td><td> c = -c</td><td>  </td></tr>
-                                                                                                                                    <tr><td><b>f = VpGetSign(c)</b></td>
-                          <td>returns one of the values defined in bigdecimal.h as listed bellow :
-                           <table>
-                              <tr><th>value returned (f)  </th><th> c is a </th></tr>
-                              <tr><td> VP_SIGN_NaN( 0) </td><td> NaN </td></tr>
-                              <tr><td> VP_SIGN_POSITIVE_ZERO( 1) </td><td> positive zero </td></tr>
-                              <tr><td> VP_SIGN_NEGATIVE_ZERO(-1) </td><td> negative zero </td></tr>
-                              <tr><td> VP_SIGN_POSITIVE_FINITE( 2) </td><td> positive finite number</td></tr>
-                              <tr><td> VP_SIGN_NEGATIVE_FINITE(-2) </td><td>  negative finite number</td></tr>
-                              <tr><td> VP_SIGN_POSITIVE_INFINITE( 3)</td><td> positive infinite number</td></tr>
-                              <tr><td> VP_SIGN_NEGATIVE_INFINITE(-3)</td><td>  negative infinite number</td></tr>
-                           </table>
-                         </td><td>return value is an integer.  
-           </td></tr>
+                                                                                                                                    <tr><td><b>n = VpEffectiveDigits(c)</b></td><td>returns n,where n is the number of effective digits.
+</td><td>n is an integer for which leading and trailing 0's are not counted.  </td></tr>
+<tr><td><b>c = VpRevertSign(c)<br />c = VpNegate(c)</b></td><td> c = -c</td><td>  </td></tr>
+<tr><td><b>f = VpGetSign(c)</b></td>
+<td>returns one of the values defined in bigdecimal.h as listed bellow :
+<table>
+        <tr><th>value returned (f)</th><th> c is a </th></tr>
+        <tr><td> VP_SIGN_NaN( 0) </td><td> NaN </td></tr>
+        <tr><td> VP_SIGN_POSITIVE_ZERO( 1) </td><td> positive zero </td></tr>
+        <tr><td> VP_SIGN_NEGATIVE_ZERO(-1) </td><td> negative zero </td></tr>
+        <tr><td> VP_SIGN_POSITIVE_FINITE( 2) </td><td> positive finite number</td></tr>
+        <tr><td> VP_SIGN_NEGATIVE_FINITE(-2) </td><td>  negative finite number</td></tr>
+        <tr><td> VP_SIGN_POSITIVE_INFINITE( 3)</td><td> positive infinite number</td></tr>
+        <tr><td> VP_SIGN_NEGATIVE_INFINITE(-3)</td><td>  negative infinite number</td></tr>
+</table>
+</td><td>return value is an integer.</td></tr>
 <tr><td><b>c = VpSetSign(c,f)</b></td><td>sets c=|c|(if f&gt;0),c=-|c|(if f&lt;0)</td><td>f is an integer.</td></tr>
 </table>
 
@@ -179,7 +182,8 @@ the resulting digits are being saved to c while the computation is going on.<br/
 * VpDiv() returns NaN,if 0/0 is done.<p/>
 
 Bigdecimal also offers some mathematical functions(most functions return resulting 'c').
-<table>
+<table width="100%">
+<col width="20%"><col width="60%"><col width="20%">
 <tr><th>Bigdecimal functions</th><th>meaning</th><th>notes</th></tr>
 <tr><td><b>c = VpSqrt(c,a)</b></td><td> c = a<sup>1/2</sup></td><td>computed by Newton's method.</td></tr>
 <tr><td><b>c = VpPI(c)</b></td><td> c = 3.141592....</td></td><td>computed by Matine's formula.</td></tr>
@@ -234,7 +238,8 @@ pi2       = 1.5707963267 9489661923 1321691639 7514420985 8469968755 2910487472 
 sin(pi2)  = 0.9999999999 9999999999 9999999999 9999999999 9999999999 9999999999 9999999999 9999999999 9999999999 9999999991 0017E0
 </pre>
 As series expansion is adopted for math functions,maximum iteration count can be set by the user.
-<table>
+<table width="100%">
+<col width="30%"><col width="70%">
 <tr><th>Bigdecimal functions</th><th>meaning</th></tr>
 <tr><td>m = VpGetMaxIterationCount()</td><td>returns maximum iteration count(default=10000) </td></tr>
 <tr><td>m = VpSetMaxIterationCount(m)</td><td>sets maximum iteration count to m. </td></tr>
@@ -243,7 +248,8 @@ As series expansion is adopted for math functions,maximum iteration count can be
 <a name="PRINT"/>
 <h2>Display/Print</h2>
 The computation results must be converted into human readable form.<br/>
-<table>
+<table width="100%">
+<col width="30%"><col width="70%">
 <tr><th>Bigdecimal functions</th><th>meaning</th></tr>
 <tr><td>n = VpPrintE(fp,c)</td><td> print c to fp in E-format.</td></tr>
 <tr><td>n = VpPrintF(fp,c)</td><td> print c to fp in F-format.</td></tr>
@@ -256,13 +262,15 @@ Bigdecimal value is printed like:<blockquote>
 </blockquote> 
 where x,y and e are digits('0'-'9').<p/>
 Bigdecimal value can be converted to string(character array).<br>
-<table>
+<table width="100%">
+<col width="30%"><col width="70%">
 <tr><th>Bigdecimal functions</th><th>meaning</th></tr>
 <tr><td>char *szE = VpToStringE(c,szE)</td><td>szE &lt;== E-format of c.</td></tr>
 <tr><td>char *szF = VpToStringF(c,szF)</td><td>szF &lt;== F-format of c.</td></tr>
 </table>
 The array size of szE and szF must be equal to or greater than the value returned by<br/>
-<table>
+<table width="100%">
+<col width="30%"><col width="70%">
 <tr><th>Bigdecimal functions</th><th>meaning</th></tr>
 <tr><td>m = VpStringLengthE(c)</td><td>m is a maximum character array size to represent c in E-format.</td></tr>
 <tr><td>m = VpStringLengthF(c)</td><td>m is a maximum character array size to represent c in F-format.</td></tr>
@@ -335,13 +343,15 @@ Enter command
 Suppose C and A are Bigdecimal variables. The value assignment from A to C(C=A) is done by <b>VpAsgn(C,A,1)</b>.<br>If VpMaxLength(C) &lt; VpCurLength(A),then all digits of A can not be copied to C and the default rounding operation will be done. <br/>
 The default round operation is done in other cases such as addition or subtraction(internal rounding).<br/>
 To set or get the default rounding operation use:<p/>
-<table>
+<table width="100%">
+<col width="30%"><col width="70%">
 <tr><th>Bigdecimal functions</th><th>meaning</th></tr>
 <tr><td>f = VpGetRoundMode()</td><td> f is a rounding mode listed bellow.</td></tr>
 <tr><td>f = VpSetRoundMode(f)</td><td> f is a rounding mode listed bellow.</td></tr>
 </table>
 where f is the one of default rouding modes listed bellow.
-<table>
+<table width="100%">
+<col width="25%"><col width="60%"><col width="15%">
       <TBODY>
 <tr><th>Round mode</th><th>Meaning</th><th>Value</th></tr>
       <TR><TD>VP_ROUND_UP</TD><TD>round away from zero.</TD><td>1</td></TR>
@@ -356,7 +366,8 @@ where f is the one of default rouding modes listed bellow.
 
 The position of round operation can explicitly specified by following 2 functions.<br/>
 Both function return resulting c.
-<table>
+<table width="100%">
+<col width="30%"><col width="70%">
 <tr><th>Bigdecimal functions</th><th>meaning</th></tr>
 <tr><td>c = VpScaleRound(c,i)</td><td>
 i is the position of round operation mesured from decimal point.<br/>
@@ -435,7 +446,8 @@ To check if the returned value is valid VP_HANDLE,use VpValid() or VpInvalid() a
 </code></pre>
 Checking on the return value is always valid.<br/>
 To check the VP_HANDLE, use following macros.
-<table>
+<table width="100%">
+<col width="30%"><col width="70%">
 <tr><th>macros</th><th>meaning</th></tr>
 <tr><td>VpIsInvalid(c)</td><td> 1 if c is invalid,0 if c is valid VP_HANDLE.</td></tr>
 <tr><td>VpIsValid(h)</td><td>  0 if h is invalid,1 if h is valid VP_HANDLE.</td></tr>
@@ -471,7 +483,8 @@ On the following table,VpIsxxxx(c) returns 1 if the VP_HANDLE c is xxxx otherwis
 where xxxx is One(1),Positive Zero(+0),Negative Zero(-0),Zero(0),NaN,Positive infinity(+Infinity),
 Negative infinity(-Infinity) or Infinity respectively.<br/>
 And VpSetxxxx(c,[f]) set c to xxxx as same as above where f is a sign to set if there.
-<table>
+<table width="100%">
+<col width="30%"><col width="70%">
 <tr><th>Bigdecimal functions</th><th>meaning</th></tr>
 <tr><td>f = VpIsOne(c)<br/>c = VpSetOne(c)</td><td> 1 if c==1<br/>c=1  </td></tr>
 <tr><td>f = VpIsPosZero(c)<br/>c = VpSetPosZero(c)</td><td>1 if c==+0<br/> c=+0  </td></tr>
@@ -527,10 +540,6 @@ VP_DIGIT can be 32-bit or 64-bit unsigned integer(see bigdecimal.h).<br/>
 On 64-bit machine with 64-bit OS,better performance can be obtained by setting VP_DIGIT as 'unsigned long long'(64-bit).<br/>
 On 32-bit OS,VP_DIGIT can also be set to be 64-bit(unsigned long long) which may cause bad performance due to 64-bit emulation.
 
-<a name="VPC"/>
-<h2>VPC(Variable Precision Calculator V2) for Bigdecimal API testing</h2>
-VPC(Variale Precision Cauculator bundled with Bigdecimal) is a simple but programmable calculator for testing Bigdecimal API.<br/>
-VPC v2 is completely reorganized from v1. For detail of the VPC V2, <a href="./vpc_en.html" target="_new">see the VPC document.</a>
 <div align="right">
 Shigeo Kobayashi 2024-3-21
 </div>
