@@ -42,22 +42,25 @@ static ROUNDMODE gRMode[] = {
 };
 static int gmRMode = sizeof(gRMode) / sizeof(gRMode[0]);
 
-void PrintFormat(PARSER *p,FILE *f)
+void PrintFormat(PARSER *p,FILE *f,int newline)
 {
-	fprintf(f,"$format = '%d%c%c%c%c'\n", gnCount, gchLeader, gchFormatChar, gchSeparator, gchQuote);
+	if(newline) fprintf(f, "$format = '%d%c%c%c%c'\n", gnCount, gchLeader, gchFormatChar, gchSeparator, gchQuote);
+	else        fprintf(f, "$format = '%d%c%c%c%c'; ", gnCount, gchLeader, gchFormatChar, gchSeparator, gchQuote);
 }
 
-void PrintPrecision(PARSER *p,FILE *f)
+void PrintPrecision(PARSER *p,FILE *f, int newline)
 {
-	fprintf(f,"$precision = '%d'\n", gmPrecision);
+	if(newline) fprintf(f, "$precision = '%d'\n", gmPrecision);
+	else        fprintf(f, "$precision = '%d'; ", gmPrecision);
 }
 
-void PrintRound(PARSER *p,FILE *f)
+void PrintRound(PARSER *p,FILE *f, int newline)
 {
 	int i;
 	for (i = 0; i < gmRMode; ++i) {
 		if (gRMode[i].value == gRoundMode) {
-			fprintf(f, "$round = '%s'\n", gRMode[i].name);
+			if(newline) fprintf(f, "$round = '%s'\n", gRMode[i].name);
+			else        fprintf(f, "$round = '%s'; ", gRMode[i].name);
 			return;
 		}
 	}
@@ -65,9 +68,10 @@ void PrintRound(PARSER *p,FILE *f)
 	gRoundMode = VpGetRoundMode();
 }
 
-void PrintIterations(PARSER *p,FILE *f)
+void PrintIterations(PARSER *p,FILE *f,int newline)
 {
-	fprintf(f,"$max_iterations = '%d'\n", gmIterations);
+	if(newline) fprintf(f, "$max_iterations = '%d'\n", gmIterations);
+	else        fprintf(f, "$max_iterations = '%d'; ", gmIterations);
 }
 
 static UCHAR GetQuote(UCHAR* psz)
@@ -79,16 +83,22 @@ static UCHAR GetQuote(UCHAR* psz)
 	}
 	return'\"';
 }
-void PrintTitle(PARSER *p,FILE* f)
+void PrintTitle(PARSER *p,FILE* f,int newline)
 {
 	UCHAR ch;
-	if ( gszTitle[0] =='\0' ) fprintf(f, "$title = ' '\n");
+	
+	if (gszTitle[0] == '\0') {
+		if(newline) fprintf(f, "$title = ' '\n");
+		else        fprintf(f, "$title = ' '; ");
+	}
 	else {
-		ch = GetQuote(gszTitle); fprintf(f, "$title = %c%s%c\n", ch, gszTitle, ch);
+		ch = GetQuote(gszTitle); 
+		if (newline) fprintf(f, "$title = %c%s%c\n", ch, gszTitle, ch);
+		else         fprintf(f, "$title = %c%s%c; ", ch, gszTitle, ch);
 	}
 }
 
-void OutputVariableTitle(FILE* f, UCHAR chv)
+void OutputVariableTitle(FILE* f, UCHAR chv,int newline)
 {
 	int ixv = chv - 'a';
 	UCHAR ch;
@@ -100,20 +110,22 @@ void OutputVariableTitle(FILE* f, UCHAR chv)
 	if (gszVTitle[ixv] != NULL) {
 		fprintf(f, " $%c = ", chv);
 		ch = GetQuote(gszVTitle[ixv]);
-		fprintf(f, "%c%s%c\n",ch, gszVTitle[ixv],ch);
+		if(newline) fprintf(f, "%c%s%c\n", ch, gszVTitle[ixv],ch);
+		else        fprintf(f, "%c%s%c; ", ch, gszVTitle[ixv], ch);
 	}
 	else {
-		fprintf(f, " $%c = ' '\n", chv);
+		if (newline) fprintf(f, " $%c = ' '\n", chv);
+		else         fprintf(f, " $%c = ' '; ", chv);
 	}
 }
 
-void PrintVariableTitle(PARSER* p,FILE* f)
+void PrintVariableTitle(PARSER* p,FILE* f,int newline)
 {
 	UCHAR chv = TokenChar(p->r,1, 1);
-	OutputVariableTitle(f, chv);
+	OutputVariableTitle(f, chv,newline);
 }
 
-void PrintVariable(FILE* f, UCHAR chv) 
+void PrintVariable(FILE* f, UCHAR chv,int newline) 
 {
 	VP_HANDLE v;
 	int ixv = chv - 'a';
@@ -135,20 +147,22 @@ void PrintVariable(FILE* f, UCHAR chv)
 		fprintf(f,"0.0");
 	}
 	if (gchQuote == 'Q') fprintf(f,"%c", '\'');
-	fprintf(f,"\n");
+	if(newline) fprintf(f, "\n");
+	else        fprintf(f, "; ");
 }
 
 void DoPrint(PARSER *p)
 {
 	int i;
 	FILE* f = stdout;
-
+	int fNewLine = 1;
+	if (TokenCount(p->r) == 3 && IsToken("+", p->r, 2)) fNewLine = 0;
 	for (i = 0; i < gmSetting; ++i) {
 		if (strcmp(TokenPTR(p->r,1),gSetting[i].name)==0) {
-			((void(*)(PARSER *,FILE *))gSetting[i].print)(p,f); return;
+			((void(*)(PARSER *,FILE *,int))gSetting[i].print)(p,f, fNewLine); return;
 		};
 	}
-	if (TokenSize(p->r,1) == 1)  { PrintVariable(f, TokenChar(p->r, 1, 0)); return;}
+	if (TokenSize(p->r,1) == 1)  { PrintVariable(f, TokenChar(p->r, 1, 0), fNewLine); return;}
 	ERROR(fprintf(stderr, "Error: undefined variable(%s).\n", TokenPTR(p->r,1)));
 	return;
 }
@@ -314,15 +328,15 @@ void DoWrite(PARSER *p,UCHAR* otFile)
 		ERROR(fprintf(stderr, "Error: unable to open the file(%s).\n", otFile));
 		return;
 	}
-	PrintTitle(p,f);
-	PrintFormat(p,f);
-	PrintPrecision(p,f);
-	PrintRound(p,f);
-	PrintIterations(p,f);
+	PrintTitle(p,f,1);
+	PrintFormat(p,f,1);
+	PrintPrecision(p,f,1);
+	PrintRound(p,f,1);
+	PrintIterations(p,f,1);
 	gchQuote = 'Q';
 	for (i = 0; i < 26; ++i) {
-		OutputVariableTitle(f, 'a' + i);
-		PrintVariable(f, 'a' + i);
+		OutputVariableTitle(f, 'a' + i,0);
+		PrintVariable(f, 'a' + i,1);
 	}
 	gchQuote = chq;
 	fclose(f);

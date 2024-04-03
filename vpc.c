@@ -9,9 +9,9 @@
 #include "vpc.h"
 #include <signal.h>
 
-int        gcError = 0; /* flag for error(error counter in a line) */
-int        gfQuit  = 0; /* flag for 'quit' */
-int        gfBreak = 0; /* flag for 'break' */
+int        gcError   = 0; /* flag for error(error counter in a line) */
+int        gfQuit    = 0; /* flag for 'quit' */
+int        gfBreak   = 0; /* flag for 'break' */
 
 void InitVpc(int cInput,int cToken)
 {

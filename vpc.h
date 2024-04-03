@@ -22,9 +22,9 @@
 #define UCHAR unsigned char
 
  /* Extern items defined in vpc.c */
-extern int      gcError;  /* flag for error(error counter in a line) */
-extern int      gfQuit;   /* flag for 'quit' */
-extern int      gfBreak;  /* flag for 'break' */
+extern int      gcError;   /* flag for error(error counter in a line) */
+extern int      gfQuit;    /* flag for 'quit' */
+extern int      gfBreak;   /* flag for 'break' */
 
 #define ERROR(s)  {gcError++; s ;}
 #define FATAL(s)  {s ; FinishVpc(-1);}
@@ -130,12 +130,6 @@ extern int    IsToken(const UCHAR* token, READER* r, int it);
 
 /* in parser.c */
 
-
-
-
-
-
-
 extern void   InitVpc(int cInput, int cToken);
 extern void   FinishVpc(int e);
 extern void   ClearGlobal();
@@ -190,12 +184,12 @@ extern UCHAR gchQuote;
 extern UCHAR gchLeader;
 
 /* print functions refferred in gSetting[].print  */
-extern void PrintTitle        (PARSER* p, FILE* f);
-extern void PrintFormat       (PARSER* p, FILE* f);
-extern void PrintPrecision    (PARSER* p, FILE* f);
-extern void PrintIterations   (PARSER* p, FILE* f);
-extern void PrintRound        (PARSER* p, FILE* f);
-extern void PrintVariableTitle(PARSER* p,FILE* f);
+extern void PrintTitle        (PARSER* p, FILE* f, int newline);
+extern void PrintFormat       (PARSER* p, FILE* f, int newline);
+extern void PrintPrecision    (PARSER* p, FILE* f, int newline);
+extern void PrintIterations   (PARSER* p, FILE* f, int newline);
+extern void PrintRound        (PARSER* p, FILE* f, int newline);
+extern void PrintVariableTitle(PARSER* p, FILE* f, int newline);
 
 /* setting functions refferred in gSetting[].calc  */
 extern void DoTitle(PARSER* p);
@@ -207,8 +201,8 @@ extern void SetVTitle(PARSER* p);
 
 
 
-extern void OutputVariableTitle(FILE* f, UCHAR chv);
-extern void PrintVariable(FILE* f, UCHAR chv);
+extern void OutputVariableTitle(FILE* f, UCHAR chv,int newline);
+extern void PrintVariable(FILE* f, UCHAR chv, int newline);
 
 extern void DoPrint(PARSER* p);
 extern void DoSetting(PARSER* p);

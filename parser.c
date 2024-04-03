@@ -559,8 +559,10 @@ int ParseStatement(PARSER *p)
 		ERROR(fprintf(stderr, " Syntax error (=).\n"));
 		return 0;
 	case '?':
-		if (TokenCount(p->r) != 2) { ERROR(fprintf(stderr, " Syntax error.\n")); return 0; }
-		return 1;
+		if (TokenCount(p->r) == 2) return 1;
+		if (TokenCount(p->r) == 3 && IsToken("+", p->r, 2)) return 1;
+		ERROR(fprintf(stderr, " Syntax error(?).\n"));
+		return 0;
 	}
 	if (IsToken("break", p->r, 0) && nt == 1)  return 1;
 	if (IsToken("load", p->r, 0) && nt > 2)    return 1;
