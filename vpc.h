@@ -198,16 +198,12 @@ extern void DoPrecision(PARSER* p);
 extern void DoIterations(PARSER* p);
 extern void DoRound(PARSER* p);
 extern void SetVTitle(PARSER* p);
-
-
-
 extern void OutputVariableTitle(FILE* f, UCHAR chv,int newline);
 extern void PrintVariable(FILE* f, UCHAR chv, int newline);
-
 extern void DoPrint(PARSER* p);
 extern void DoSetting(PARSER* p);
-
-/* Extern items define in io.c */
+extern void WriteSetting(PARSER* p, FILE* f);
+extern void WriteContents(PARSER *p,FILE* f);
 extern void DoRead  (UCHAR* inFile);
 extern void DoWrite (PARSER *p,UCHAR* otFile);
 

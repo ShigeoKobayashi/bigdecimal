@@ -117,7 +117,11 @@ To set environment setting variable's value, '= ' can be used. But only simple s
 <li><b>Value printing:</b><br/>
 Value of a variable or a environment setting can be printed by ?. But,only a variable or a environment setting can be placed after ?. Any equation or computation can not be placed after ?.<br/>
 After printing any value, '?' prints <b>new-line</b>, but it prints '; ' if '+' is added at the end instead.<br/>
-Example:  a=1;b=2;?a+;?b  ==&gt; a = 1; b = 2<p/>
+Example:  a=1;b=2;?a+;?b  ==&gt; a = 1; b = 2<br/>
+Special usage:<blockquote>
+?* ... Value of all valrables and settings are printed.<br/>
+?$ ... Value of all settings are printed.
+</blockquote>
 
 <li><b>Processing unit(statement):</b><br/>
 One line can be divided into statements by ';'. VPC processes a statement at a time.
