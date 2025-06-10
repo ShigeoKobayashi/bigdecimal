@@ -9,14 +9,14 @@
  */
 #include "vpc.h"
 
-int ToIntFromSz(int* pi, UCHAR* sz)
+int ToIntFromSz(int* pi, char* sz)
 {
 	int  sign = 1;
 	int  s = 0;
 	int  i = 0;
 	int dot = 0;
 
-	UCHAR ch;
+	char ch;
 
 	while (isspace(*sz)) sz++;
 	ch = *sz;
@@ -49,7 +49,7 @@ int ToIntFromSz(int* pi, UCHAR* sz)
 
 static int ToInteger(int* pi, VP_HANDLE v)
 {
-	static UCHAR szInt[50];
+	static char szInt[50];
 	static int ni = sizeof(szInt) / sizeof(szInt[0]);
 	int         s = VpStringLengthF(v);
 	if (s >= ni) {
@@ -175,7 +175,7 @@ static void PolishReplace(PARSER* p,int v, int ixs, int ixe)
 	p->cPolish = ixs;
 }
 
-const UCHAR* FunctionName(int i)
+const char* FunctionName(int i)
 {
 	return gFunctions[i].name;
 }
@@ -242,7 +242,7 @@ int EnsureVariable(int iv, int mx)
 	return 1;
 }
 
-int CreateNumericWorkVariable(UCHAR *szN)
+int CreateNumericWorkVariable(char *szN)
 {
 	VP_HANDLE vw;
 
@@ -316,7 +316,7 @@ static int DoBinaryOperation(PARSER *p,int ixp, int token)
 	int l = l1;
 	int d = 0;
 
-	UCHAR ch = TokenChar(p->r,token,0);
+	char ch = TokenChar(p->r,token,0);
 
 	if (VpIsNumeric(v1)) {
 		l1 = VpCurLength(v1);

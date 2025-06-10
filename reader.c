@@ -9,8 +9,8 @@
  */
 #include "vpc.h"
 
-UCHAR      gDelimiters[] = { '?' , '(', ')' ,  '=' , '*' , '/' , '+' , '-' , ',' , ';', '<' , '>' , '!' };
-int        gmDelimiters = sizeof(gDelimiters) / sizeof(gDelimiters[0]);
+char      gDelimiters[] = { '?' , '(', ')' ,  '=' , '*' , '/' , '+' , '-' , ',' , ';', '<' , '>' , '!' };
+int       gmDelimiters = sizeof(gDelimiters) / sizeof(gDelimiters[0]);
 
 void CloseReader(READER* r)
 {
@@ -39,25 +39,25 @@ READER* OpenReader(FILE* f, int max_line_char)
 {
 	READER* r = NULL;
 
-	r = calloc(1, sizeof(READER));
+	r = (READER*)calloc(1, sizeof(READER));
 	if (r == NULL) {
 		ERROR(fprintf(stderr, "Error: failed to allocate memory for LINE structure(%d).\n", sizeof(READER)));
 		goto Error;
 	}
 	r->file = f;
-	r->Buffer = calloc(max_line_char, sizeof(char));
+	r->Buffer = (char*)calloc(max_line_char, sizeof(char));
 	if (r->Buffer==NULL) {
 		ERROR(fprintf(stderr, "Error: failed to allocate memory for line buffer(%d).\n", max_line_char));
 		goto Error;
 	}
 	r->mBuffer = max_line_char;
-	r->Statements = calloc(max_line_char / 2, sizeof(STATEMENT));
+	r->Statements = (STATEMENT*)calloc(max_line_char / 2, sizeof(STATEMENT));
 	if (r->Statements==NULL) {
 		ERROR(fprintf(stderr, "Error: failed to allocate memory for STATEMENT structure(%d).\n", (max_line_char / 2)*sizeof(STATEMENT)));
 		goto Error;
 	}
 	r->mStatements = max_line_char / 2;
-	r->Tokens = calloc(max_line_char / 2, sizeof(TOKEN));
+	r->Tokens = (TOKEN*)calloc(max_line_char / 2, sizeof(TOKEN));
 	if (r->Tokens==NULL) {
 		ERROR(fprintf(stderr, "Error: failed to allocate memory for TOKEN structure(%d).\n", (max_line_char / 2) * sizeof(TOKEN)));
 		goto Error;
@@ -107,29 +107,29 @@ static void PrintTokens(READER* r)
 }
 #endif
 
-UCHAR IsDEL(UCHAR ch) { int i; for (i = 0; i < gmDelimiters; ++i) {if (ch == gDelimiters[i]) return ch;}	return 0;}
-int   IsEOL(UCHAR ch) { return (ch == (UCHAR)EOF) || (ch == '\n');}
-int   IsEOS(UCHAR ch) { return (ch == ';') || IsEOL(ch);}
-int   IsEOF(UCHAR ch) { return ((ch == (UCHAR)EOF) || (ch == 0x1A));}
+char  IsDEL(char ch) { int i; for (i = 0; i < gmDelimiters; ++i) {if (ch == gDelimiters[i]) return ch;}	return 0;}
+int   IsEOL(char ch) { return (ch == (char)EOF) || (ch == '\n');}
+int   IsEOS(char ch) { return (ch == ';') || IsEOL(ch);}
+int   IsEOF(char ch) { return ((ch == (char)EOF) || (ch == 0x1A));}
 
-int IsDigit(UCHAR ch)
+int IsDigit(char ch)
 {
 	if (ch == '0' || ch == '1' || ch == '2' || ch == '3' || ch == '4' || ch == '5' || ch == '6' || ch == '7' || ch == '8' || ch == '9') return 1;
 	return 0;
 }
 
 
-static UCHAR GetChar(READER* r)
+static char GetChar(READER* r)
 {
-	FILE* f = r->file;
-	UCHAR ch = getc(f);
-	if (ch == 0x1A) ch = (UCHAR)EOF;
+	FILE* f  = r->file;
+	char  ch = getc(f);
+	if (ch == 0x1A) ch = (char)EOF;
 	return ch;
 }
 
-static UCHAR SkipToEOL(READER *r)
+static char SkipToEOL(READER *r)
 {
-	UCHAR ch;
+	char ch;
 	while (!IsEOL(ch = GetChar(r)));
 	return ch;
 }
@@ -143,7 +143,7 @@ static void PushBuffer(READER* r,int ch)
 	r->Buffer[r->cBuffer  ] = '\0';
 }
 
-static UCHAR PopBuffer(READER* r)
+static char PopBuffer(READER* r)
 {
 	if (--(r->cBuffer) < 0) {
 		FATAL(fprintf(stderr, "SYSTEM_ERROR:String buffer underflowed."));
@@ -169,11 +169,11 @@ int TokenSize(READER* r,int it)
 {
 	return r->Tokens[r->Statements[r->iStatement].start + it].end - r->Tokens[r->Statements[r->iStatement].start + it].start + 1;
 }
-UCHAR  TokenChar(READER* r,int it, int ic)
+char  TokenChar(READER* r,int it, int ic)
 {
 	return r->Buffer[r->Tokens[r->Statements[r->iStatement].start + it].start + ic];
 }
-UCHAR* TokenPTR(READER* r,int it)
+char* TokenPTR(READER* r,int it)
 {
 	return &(r->Buffer[r->Tokens[r->Statements[r->iStatement].start + it].start]);
 }
@@ -200,7 +200,7 @@ void   SetTokenWhat2(READER* r,int it, int w)
 	r->Tokens[r->Statements[r->iStatement].start + it].etc = w;
 }
 
-int IsToken(const UCHAR* token, READER* r, int it)
+int IsToken(const char* token, READER* r, int it)
 {
 	int nc = TokenSize(r, it);
 	int i;
@@ -211,10 +211,10 @@ int IsToken(const UCHAR* token, READER* r, int it)
 
 int IsNumeric(READER* r, int it)
 {
-	int ixs = 0;
-	int ixe = TokenSize(r, it) - 1;
-	UCHAR ch = TokenChar(r, it, 0);
-	int   cDot = 0;
+	int  ixs = 0;
+	int  ixe = TokenSize(r, it) - 1;
+	char ch = TokenChar(r, it, 0);
+	int  cDot = 0;
 
 	int   cd = 0;
 	int   cSign = 0;
@@ -288,10 +288,10 @@ int IsNumeric(READER* r, int it)
 	return 1;                         /* Yes numeric(Integer or floating) */
 }
 
-static UCHAR ReadToken(READER* r, int* ixFrom, int* ixTo)
+static char ReadToken(READER* r, int* ixFrom, int* ixTo)
 {
-	UCHAR ch;
-	UCHAR chE=0;
+	char ch;
+	char chE=0;
 
 	*ixFrom = 0;
 	*ixTo   =-1;
@@ -312,7 +312,7 @@ static UCHAR ReadToken(READER* r, int* ixFrom, int* ixTo)
 	}
 
 	if (ch == '"' || ch=='\'') {
-		UCHAR endS = ch;
+		char endS = ch;
 		PopBuffer(r);
 		while (!IsEOL(ch = GetChar(r))) {
 			*ixTo = r->cBuffer;
@@ -335,9 +335,9 @@ static UCHAR ReadToken(READER* r, int* ixFrom, int* ixTo)
 	return ch;
 }
 
-static UCHAR ReadStatement(READER *r,int *nc)
+static char ReadStatement(READER *r,int *nc)
 {
-	UCHAR ch;
+	char ch;
 	int   ixs, ixe;
 
 	*nc = 0;
@@ -352,10 +352,10 @@ static UCHAR ReadStatement(READER *r,int *nc)
 	return ch;
 }
 
-UCHAR ReadLine(READER* r)
+char ReadLine(READER* r)
 {
-	UCHAR ch;
-	int   nc;
+	char ch;
+	int  nc;
 
 	ClearReader(r);
 	do {

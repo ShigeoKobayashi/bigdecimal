@@ -19,9 +19,7 @@
 #include <ctype.h>
 #include "bigdecimal.h"
 
-#define UCHAR unsigned char
-
- /* Extern items defined in vpc.c */
+/* Extern items defined in vpc.c */
 extern int      gcError;   /* flag for error(error counter in a line) */
 extern int      gfQuit;    /* flag for 'quit' */
 extern int      gfBreak;   /* flag for 'break' */
@@ -57,7 +55,7 @@ typedef struct _STATEMENT {
 } STATEMENT;
 
 typedef struct _FUNCTION {
-	const UCHAR *name;
+	const char *name;
 	void*       func;
 	int         arguments;
 } FUNCTION;
@@ -88,16 +86,15 @@ typedef struct _P_STATEMENT {
 typedef struct _PARSER {
 	READER* r;
 	int* TokenStack;      /* Temporaly stack for creating reverse polish */
-	int    cTokenStack;
+	int  cTokenStack;
 
 	int* TotalPolish;     /* Total buffer of reverse polish in a line */
-	int    cTotalPolish;
+	int  cTotalPolish;
 
 	P_STATEMENT* PolishDivider; /* start end end points of reverse polish of each statement in a line */
 
 	int* Polish;           /* temporary reverse polish array to execute */
-	int   cPolish;
-
+	int  cPolish;
 	int    mSize;            /* max size of arrays above(all the same) */
 
 } PARSER;
@@ -108,25 +105,25 @@ extern void    CloseReader(READER* r);
 extern void    SetStatement(READER* r, int i);
 extern int     GetStatement(READER* r);
 
-extern UCHAR IsDEL(UCHAR ch);
-extern int   IsEOL(UCHAR ch);
-extern int   IsEOS(UCHAR ch);
-extern int   IsEOF(UCHAR ch);
-extern UCHAR ReadLine(READER* r);
-extern int   IsDigit(UCHAR ch);
+extern char IsDEL(char ch);
+extern int  IsEOL(char ch);
+extern int  IsEOS(char ch);
+extern int  IsEOF(char ch);
+extern char ReadLine(READER* r);
+extern int   IsDigit(char ch);
 
 extern int    TokenCount(READER* r);
 extern int    TokenSize(READER* r, int it);
-extern UCHAR  TokenChar(READER* r, int it, int ic);
+extern char   TokenChar(READER* r, int it, int ic);
 extern int    TokenWhat(READER* r, int it);
 extern int    TokenWhat2(READER* r, int it);
 extern int    TokenPriority(READER* r, int it);
 extern void   SetTokenWhat2(READER* r, int it, int w);
-extern UCHAR* TokenPTR(READER* r, int it);
+extern char*  TokenPTR(READER* r, int it);
 extern void   SetTokenWhat(READER* r, int it, int w);
 extern void   SetTokenPriority(READER* r, int it, int p);
 extern int    IsNumeric(READER* r, int it);
-extern int    IsToken(const UCHAR* token, READER* r, int it);
+extern int    IsToken(const char* token, READER* r, int it);
 
 /* in parser.c */
 
@@ -134,21 +131,21 @@ extern void   InitVpc(int cInput, int cToken);
 extern void   FinishVpc(int e);
 extern void   ClearGlobal();
 
-extern UCHAR  gDelimiters[];
+extern char   gDelimiters[];
 extern int    gmDelimiters;
 
 extern void   ReadAndExecuteLines(FILE* f);
 extern void   ParseAndExecuteRepeat(PARSER *p);
 extern void   ParseAndExecuteWhile(PARSER* p,int nt);
 extern void   ParseAndExecuteIf(PARSER* p, int nt);
-extern void ParseAndExecuteLoad(PARSER* p, int nt);
+extern void   ParseAndExecuteLoad(PARSER* p, int nt);
 
 /* Extern items defined in parser.c */
 extern int    ParseStatement(PARSER* p);
 extern void   ExecuteStatement(PARSER *p,int iStatement);
 
 typedef struct _SETTING {
-	const UCHAR* name;
+	const char* name;
 	int         value;
 	void* print;
 	void* calc;
@@ -161,8 +158,8 @@ extern int     gmSetting;
 
 /* Extern items defined in calculator.c */
 extern void         ComputePolish();
-extern int          ToIntFromSz(int* pi, UCHAR* sz);
-extern int          CreateNumericWorkVariable(UCHAR* szN);
+extern int          ToIntFromSz(int* pi, char* sz);
+extern int          CreateNumericWorkVariable(char* szN);
 
 extern FUNCTION     gFunctions[]; /* sin,cos,... etc */
 extern int          gmFunctions;  /* Max functions count */
@@ -172,16 +169,16 @@ extern VP_HANDLE    gWorkVariables[];
 extern int          gmWorkVariables;
 
 extern int          EnsureVariable(int iv, int mx);
-extern const UCHAR* FunctionName(int i);
+extern const char*  FunctionName(int i);
 extern int          FunctionArguments(int i);
 
 /* Extern items define in setting.c */
 extern int   gmPrecision;
 extern int   gnCount;
-extern UCHAR gchFormatChar;
-extern UCHAR gchSeparator;
-extern UCHAR gchQuote;
-extern UCHAR gchLeader;
+extern char  gchFormatChar;
+extern char  gchSeparator;
+extern char  gchQuote;
+extern char  gchLeader;
 
 /* print functions refferred in gSetting[].print  */
 extern void PrintTitle        (PARSER* p, FILE* f, int newline);
@@ -198,13 +195,13 @@ extern void DoPrecision(PARSER* p);
 extern void DoIterations(PARSER* p);
 extern void DoRound(PARSER* p);
 extern void SetVTitle(PARSER* p);
-extern void OutputVariableTitle(FILE* f, UCHAR chv,int newline);
-extern void PrintVariable(FILE* f, UCHAR chv, int newline);
+extern void OutputVariableTitle(FILE* f, char chv,int newline);
+extern void PrintVariable(FILE* f, char chv, int newline);
 extern void DoPrint(PARSER* p);
 extern void DoSetting(PARSER* p);
 extern void WriteSetting(PARSER* p, FILE* f);
 extern void WriteContents(PARSER *p,FILE* f);
-extern void DoRead  (UCHAR* inFile);
-extern void DoWrite (PARSER *p,UCHAR* otFile);
+extern void DoRead  (char* inFile);
+extern void DoWrite (PARSER *p,char* otFile);
 
 /* --- end of vpc.h --- */

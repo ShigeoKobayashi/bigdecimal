@@ -58,7 +58,7 @@ void CloseParser(PARSER* p)
 
 PARSER *OpenParser(FILE *f,int mToken)
 {
-	PARSER* p = calloc(1, sizeof(PARSER));
+	PARSER* p = (PARSER*)calloc(1, sizeof(PARSER));
 	if (p == NULL) {
 		ERROR(fprintf(stderr, "SYSTEM_ERROR: failed to allocate PARSER structur.\n"));
 		return NULL;
@@ -66,25 +66,25 @@ PARSER *OpenParser(FILE *f,int mToken)
 	p->r = OpenReader(f, mToken * 2);
 	if (p->r == NULL) goto Error;
 
-	p->TokenStack = calloc(mToken, sizeof(int));
+	p->TokenStack = (int *)calloc(mToken, sizeof(int));
 	if (p->TokenStack == NULL) {
 		ERROR(fprintf(stderr, "SYSTEM_ERROR: failed to allocate token stack memory.\n"));
 		goto Error;
 	}
 
-	p->Polish = calloc(mToken, sizeof(int));
+	p->Polish = (int*)calloc(mToken, sizeof(int));
 	if (p->Polish == NULL) {
 		ERROR(fprintf(stderr, "SYSTEM_ERROR: failed to allocate temporary reverse polish memory.\n"));
 		goto Error;
 	}
 
-	p->TotalPolish = calloc(mToken, sizeof(int));
+	p->TotalPolish = (int*)calloc(mToken, sizeof(int));
 	if (p->TotalPolish == NULL) {
 		ERROR(fprintf(stderr, "SYSTEM_ERROR: failed to allocate total reverse polish memory.\n"));
 		goto Error;
 	}
 
-	p->PolishDivider = calloc(mToken, sizeof(P_STATEMENT));
+	p->PolishDivider = (P_STATEMENT*)calloc(mToken, sizeof(P_STATEMENT));
 	if (p->PolishDivider == NULL) {
 		ERROR(fprintf(stderr, "SYSTEM_ERROR: failed to allocate memory the rerse polish for each statement.\n"));
 		goto Error;
@@ -106,8 +106,8 @@ static void PrintToken(FILE* f,READER *r, int it)
 
 static int IsVariable(READER *r,int it)
 {
-	int ich;
-	UCHAR ch;
+	int  ich;
+	char ch;
 
 	SetTokenWhat (r,it,0);
 	SetTokenWhat2(r,it, 0);
@@ -131,7 +131,7 @@ More:
 static int IsOperator(READER *r,int it)
 {
 	int ich;
-	UCHAR ch;
+	char ch;
 
 	SetTokenWhat(r,it,0);
 	SetTokenPriority(r,it,0);
@@ -641,7 +641,7 @@ static void PrintPolish(PARSER* p)
 }
 #endif
 
-static char ExecuteLine(PARSER *p,UCHAR ch)
+static char ExecuteLine(PARSER *p,char ch)
 {
 	int i;
 
@@ -670,7 +670,7 @@ void ClearParser(PARSER* p)
 
 void ReadAndExecuteLines(FILE* f)
 {
-	UCHAR ch = '\n';
+	char ch = '\n';
 	PARSER* p = OpenParser(f,1024);
 	do {
 		if (IsEOL(ch) && f == stdin) printf("\n>");

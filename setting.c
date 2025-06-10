@@ -13,32 +13,32 @@
 int  gmPrecision   = 100;
 int  gmIterations  = 10000;
 
-UCHAR gszTitle[512];
-int   gmTitle = sizeof(gszTitle) / sizeof(gszTitle[0]);
+char gszTitle[512];
+int  gmTitle = sizeof(gszTitle) / sizeof(gszTitle[0]);
 
-UCHAR* gszVTitle[26];
-int    gmVTitle = sizeof(gszVTitle) / sizeof(gszVTitle[0]);
+char* gszVTitle[26];
+int   gmVTitle = sizeof(gszVTitle) / sizeof(gszVTitle[0]);
 
 /* format */
-int   gnCount       = 10;  /* digits separation count */
-UCHAR gchFormatChar = 'E';
-UCHAR gchSeparator  = ' ';
-UCHAR gchQuote      = 'q';
-UCHAR gchLeader     = '*';
-int   gRoundMode    = VP_ROUND_HALF_UP;
+int  gnCount       = 10;  /* digits separation count */
+char gchFormatChar = 'E';
+char gchSeparator  = ' ';
+char gchQuote      = 'q';
+char gchLeader     = '*';
+int  gRoundMode    = VP_ROUND_HALF_UP;
 
 typedef struct _ROUNDMODE {
-	UCHAR* name;
+	const char* name;
 	int   value;
 } ROUNDMODE;
 static ROUNDMODE gRMode[] = {
-	{"up",VP_ROUND_UP},
-	{"down",VP_ROUND_DOWN},
-	{"half_up",VP_ROUND_HALF_UP},     /*  default */
-	{"half_down",VP_ROUND_HALF_DOWN},
-	{"ceil",VP_ROUND_CEIL},
-	{"floor",VP_ROUND_FLOOR},
-	{"half_even",VP_ROUND_HALF_EVEN}
+	{(const char*)"up",VP_ROUND_UP},
+	{(const char*)"down",VP_ROUND_DOWN},
+	{(const char*)"half_up",VP_ROUND_HALF_UP},     /*  default */
+	{(const char*)"half_down",VP_ROUND_HALF_DOWN},
+	{(const char*)"ceil",VP_ROUND_CEIL},
+	{(const char*)"floor",VP_ROUND_FLOOR},
+	{(const char*)"half_even",VP_ROUND_HALF_EVEN}
 };
 static int gmRMode = sizeof(gRMode) / sizeof(gRMode[0]);
 
@@ -74,9 +74,9 @@ void PrintIterations(PARSER *p,FILE *f,int newline)
 	else        fprintf(f, "$max_iterations = '%d'; ", gmIterations);
 }
 
-static UCHAR GetQuote(UCHAR* psz)
+static char GetQuote(char* psz)
 {
-	UCHAR ch;
+	char ch;
 	while (ch = *psz++) {
 		if (ch == '\'') return '\"';
 		if (ch == '\"') return '\'';
@@ -85,7 +85,7 @@ static UCHAR GetQuote(UCHAR* psz)
 }
 void PrintTitle(PARSER *p,FILE* f,int newline)
 {
-	UCHAR ch;
+	char ch;
 	
 	if (gszTitle[0] == '\0') {
 		if(newline) fprintf(f, "$title          = ' '\n");
@@ -98,10 +98,10 @@ void PrintTitle(PARSER *p,FILE* f,int newline)
 	}
 }
 
-void OutputVariableTitle(FILE* f, UCHAR chv,int newline)
+void OutputVariableTitle(FILE* f, char chv,int newline)
 {
 	int ixv = chv - 'a';
-	UCHAR ch;
+	char ch;
 
 	if (ixv < 0 || ixv > 25) {
 		ERROR(fprintf(stderr, "Error: undefined variable(%c)\n", chv));
@@ -121,11 +121,11 @@ void OutputVariableTitle(FILE* f, UCHAR chv,int newline)
 
 void PrintVariableTitle(PARSER* p,FILE* f,int newline)
 {
-	UCHAR chv = TokenChar(p->r,1, 1);
+	char chv = TokenChar(p->r,1, 1);
 	OutputVariableTitle(f, chv,newline);
 }
 
-void PrintVariable(FILE* f, UCHAR chv,int newline) 
+void PrintVariable(FILE* f, char chv,int newline) 
 {
 	VP_HANDLE v;
 	int ixv = chv - 'a';
@@ -151,11 +151,57 @@ void PrintVariable(FILE* f, UCHAR chv,int newline)
 	else        fprintf(f, "; ");
 }
 
+void PrintHelp(FILE *f)
+{
+	fprintf(f,"#\n# Definitions:\n");
+	fprintf(f,"#   V: A variable             => a|b|...|z (One of a or b or ... or z)\n");
+	fprintf(f,"#   S: An environment setting => $format|$max_iterations|$precision|$round|$title\n");
+	fprintf(f,"#                               |$a|$b|...|$y|$z\n");
+	fprintf(f,"#   N: An integer number      => 1|2|10|20...\n");
+	fprintf(f,"#   F: A function             => atan|sin|cos|exp|ln|pi|sqrt|iterations|abs|power\n");
+	fprintf(f,"#                               |int|frac|digits|exponent|trim|round\n");
+	fprintf(f,"#   O: An operator            => +|-|*|/\n");
+	fprintf(f,"#   L: A logical operator     => <|>|<=|>=|==|!=\n");
+	fprintf(f,"#   E: An expression          => V|N|F(E) [O V|N|F(E)]\n");
+	fprintf(f,"#   EOL: An end of input line\n");
+	fprintf(f,"#\n# Commands:\n");
+	fprintf(f,"#   =: Asignment   => V|S = E;...;\n");
+	fprintf(f,"#   ?: Print value => ??   (print this help)\n");
+	fprintf(f,"#                    |?V|S (print value of V or S)\n");
+	fprintf(f,"#                    |?*   (print all A and S)\n");
+	fprintf(f,"#                    |?$   (print all S)\n");
+	fprintf(f,"#   if:            => if V L V;ex1;ex2;...exn;EOL (execute ex1 to exn if V L V is TRUE)\n");
+	fprintf(f,"#   repeat:        => repeat N;ex1;ex2;...exn;EOL (repeat ex1 to exn N times)\n");
+	fprintf(f,"#   while:         => while V L V;ex1;ex2;...exn;EOL (execute ex1 to exn while V L V is TRUE)\n");
+	fprintf(f,"#   load:          => load 'text file' V1,V2...; (read values from 'text file' and assign them to V)\n");
+	fprintf(f,"#   write:         => write 'text file'; (write everything to 'text file' in command form)\n");
+	fprintf(f,"#   read:          => read  'text file'; (read and execute every commands in 'text file')\n");
+	fprintf(f,"#\n# Environment settings:\n");
+	fprintf(f,"#   $title|$a|$b... = any comment string\n");
+	fprintf(f,"#   $round = up down|half_up|half_down ceilfloor|half_even:\n");
+	fprintf(f,"#   $format= '10*E q'; (default)\n");
+	fprintf(f,"#              '10' ... output number is separated in each 10 digits\n");
+	fprintf(f,"#              '*'  ... '*'|'+'|'-' can be specified to control the first character(see document in detail)\n");
+	fprintf(f,"#              'E'  ... output number is represented by E-form(F for F-form)\n");
+	fprintf(f,"#              ' '  ... output number is separated by ' '\n");
+	fprintf(f,"#              'q'  ... output number is not quoted by ','Q' otherwise\n");
+	fprintf(f,"#   $max_iterations = N: maximum iteration count\n");
+	fprintf(f,"#   $precision = N: maximum digits count each variable can hold\n");
+	fprintf(f,"#\n");
+}
+
+
 void DoPrint(PARSER *p)
 {
 	int i;
 	FILE* f = stdout;
 	int fNewLine = 1;
+
+	if (TokenCount(p->r) == 2 && IsToken("?", p->r, 1)) {
+		PrintHelp(stdout);
+		return;
+	}
+
 
 	if (TokenCount(p->r) == 2 && IsToken("*", p->r, 1)) {
 		WriteContents(p,stdout);
@@ -169,7 +215,7 @@ void DoPrint(PARSER *p)
 
 	if (TokenCount(p->r) == 3 && IsToken("+", p->r, 2)) fNewLine = 0;
 	for (i = 0; i < gmSetting; ++i) {
-		if (strcmp(TokenPTR(p->r,1),gSetting[i].name)==0) {
+		if (strcmp((const char*)TokenPTR(p->r,1),(const char*)gSetting[i].name)==0) {
 			((void(*)(PARSER *,FILE *,int))gSetting[i].print)(p,f, fNewLine); return;
 		};
 	}
@@ -191,7 +237,7 @@ void DoRound(PARSER *p)
 void DoFormat(PARSER *p)
 {
 	int i,id,nd;
-	UCHAR ch;
+	char ch;
 	int nch;
 	nch = TokenSize(p->r,2);
 	for (i = 0; i < nch; ++i) {
@@ -260,15 +306,15 @@ void DoTitle(PARSER *p)
 {
 	READER* r = p->r;
 	int l;
-	UCHAR* psz = TokenPTR(r,2);
+	char* psz = TokenPTR(r,2);
 	if (TokenCount(r) == 2 && IsToken("=", r,1)) {	strcpy(gszTitle, " ");	return; }
 	if (TokenCount(r) != 3 || !IsToken("=", r, 1)) { ERROR(fprintf(stderr, "Error: syntax error.\n")); return; }
-	if (((size_t)(l=strlen(psz))) >= (size_t)gmTitle) {
+	if (((size_t)(l=strlen((const char*)psz))) >= (size_t)gmTitle) {
 		ERROR(fprintf(stderr, "Error: String too long for $title.\n"));
 		return;
 	}
-	if(l>0) strcpy(gszTitle, psz);
-	else    strcpy(gszTitle, " ");
+	if(l>0) strcpy(gszTitle, (const char*)psz);
+	else    strcpy(gszTitle, (const char*)" ");
 }
 
 void DoSetting(PARSER *p)
@@ -287,8 +333,8 @@ void DoSetting(PARSER *p)
 void SetVTitle(PARSER *p)
 {
 	READER* r = p->r;
-	UCHAR  chv;
-	UCHAR* pv;
+	char  chv;
+	char* pv;
 	int   ixv,nc;
 	int nt = TokenCount(r);
 
@@ -299,19 +345,19 @@ void SetVTitle(PARSER *p)
 	ixv = chv - 'a';
 	if (ixv < 0 || ixv>25)  goto Error;
 	pv = gszVTitle[ixv];
-	nc = strlen(TokenPTR(r,2)) + 2;
+	nc = strlen((const char*)TokenPTR(r,2)) + 2;
 	if (nc > 512) {
 		ERROR(fprintf(stderr, "Error: too long variable title."));
 		return;
 	}
 	if (pv != NULL) free(pv);
-	gszVTitle[ixv] = calloc(sizeof(UCHAR), nc);
+	gszVTitle[ixv] = (char*)calloc(sizeof(char), nc);
 
 	if (TokenCount(r) == 2) {
 		strcpy(gszVTitle[ixv], " ");
 	}
 	else if (TokenCount(r) == 3) {
-		strcpy(gszVTitle[ixv],TokenPTR(r,2));
+		strcpy(gszVTitle[ixv],(const char*)TokenPTR(r,2));
 	}
 	return;
 
@@ -319,9 +365,9 @@ Error:
 	ERROR(printf("Error: syntax error.\n"));
 }
 
-void DoRead(UCHAR* inFile)
+void DoRead(char* inFile)
 {
-	FILE* f = fopen(inFile, "r");
+	FILE* f = fopen((const char*)inFile, "r");
 	if (f == NULL) {
 		ERROR(fprintf(stderr, "Error: unable to open the file(%s).\n", inFile));
 		return;
@@ -352,9 +398,9 @@ void WriteContents(PARSER *p,FILE* f)
 	gchQuote = chq;
 }
 
-void DoWrite(PARSER *p,UCHAR* otFile)
+void DoWrite(PARSER *p,char* otFile)
 {
-	FILE* f  = fopen(otFile, "w");
+	FILE* f  = fopen((const char*)otFile, "w");
 	if (f == NULL) {
 		ERROR(fprintf(stderr, "Error: unable to open the file(%s).\n", otFile));
 		return;
@@ -533,13 +579,13 @@ void ParseAndExecuteLoad(PARSER* p, int nt)
 	int lines = 0;
 	int     i,j;
 	char    chv;
-	UCHAR   ch;
+	char    ch;
 	FILE*   fin;
 	READER* r;
 
 	int iSaved = (p->r)->iStatement;
 
-	fin = fopen(TokenPTR(p->r,1), "r");
+	fin = fopen((const char*)TokenPTR(p->r,1), "r");
 	if (fin == NULL) {
 		ERROR(fprintf(stderr, "Error: faile to open file(%s) for load.\n", TokenPTR(p->r, 1)) );
 		return;
@@ -577,7 +623,7 @@ void ParseAndExecuteLoad(PARSER* p, int nt)
 				do {
 					if (IsNumeric(r, ixt)) {
 						VP_HANDLE v = gVariables[j];
-						VpLoad(v, TokenPTR(r, ixt));
+						VpLoad(v, (const char*)TokenPTR(r, ixt));
 						if (ixt > 0 && IsToken("-",r,ixt-1)) {
 							VpNegate(v);
 						}

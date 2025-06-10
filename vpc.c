@@ -42,12 +42,13 @@ void CtrlC(int signal)
 }
 */
 
-int main(int argc, UCHAR* argv[])
+int main(int argc, char* argv[])
 {
 	FILE* fIni;
 
-	printf("\nVPC(Variable Precision Calculator V2) of Bigdecimal(V%d)\n",VpVersion());
+	printf("\nVPC(Variable Precision Calculator V2.1) of Bigdecimal(V%d)\n",VpVersion());
 	printf("  Copyright (c) 2024 by Shigeo Kobayashi. Allrights reserved.\n");
+	printf("  Enter ?? for help.\n");
 
 /*
 	signal(SIGINT, CtrlC);
