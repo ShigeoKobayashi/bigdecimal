@@ -183,7 +183,7 @@ void PrintHelp(FILE *f)
 	fprintf(f,"#              '10' ... output number is separated in each 10 digits\n");
 	fprintf(f,"#              '*'  ... '*'|'+'|'-' can be specified to control the first character(see document in detail)\n");
 	fprintf(f,"#              'E'  ... output number is represented by E-form(F for F-form)\n");
-	fprintf(f,"#              ' '  ... output number is separated by ' '\n");
+	fprintf(f,"#              ' '  ... output number is separated by ' ' (only ' ' or ',' is allowed)\n");
 	fprintf(f,"#              'q'  ... output number is not quoted by ','Q' otherwise\n");
 	fprintf(f,"#   $max_iterations = N: maximum iteration count\n");
 	fprintf(f,"#   $precision = N: maximum digits count each variable can hold\n");
