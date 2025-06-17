@@ -160,22 +160,26 @@ void PrintHelp(FILE *f)
 	fprintf(f,"#   N: An integer number      => 1|2|10|20...\n");
 	fprintf(f,"#   F: A function             => atan|sin|cos|exp|ln|pi|sqrt|iterations|abs|power\n");
 	fprintf(f,"#                               |int|frac|digits|exponent|trim|round\n");
-	fprintf(f,"#   O: An operator            => +|-|*|/\n");
+	fprintf(f,"#   O: An operator            => +|-|*|/|=  (Try and confirm the results: >a = sin(b=pi()/2); ?ab)\n");
 	fprintf(f,"#   L: A logical operator     => <|>|<=|>=|==|!=\n");
 	fprintf(f,"#   E: An expression          => V|N|F(E) [O V|N|F(E)]\n");
 	fprintf(f,"#   EOL: An end of input line\n");
 	fprintf(f,"#\n# Commands:\n");
-	fprintf(f,"#   =: Asignment   => V|S = E;...;\n");
-	fprintf(f,"#   ?: Print value => ??   (print this help)\n");
-	fprintf(f,"#                    |?V|S (print value of V or S)\n");
-	fprintf(f,"#                    |?*   (print all A and S)\n");
-	fprintf(f,"#                    |?$   (print all S)\n");
-	fprintf(f,"#   if:            => if V L V;ex1;ex2;...exn;EOL (execute ex1 to exn if V L V is TRUE)\n");
-	fprintf(f,"#   repeat:        => repeat N;ex1;ex2;...exn;EOL (repeat ex1 to exn N times)\n");
-	fprintf(f,"#   while:         => while V L V;ex1;ex2;...exn;EOL (execute ex1 to exn while V L V is TRUE)\n");
-	fprintf(f,"#   load:          => load 'text file' V1,V2...; (read values from 'text file' and assign them to V)\n");
-	fprintf(f,"#   write:         => write 'text file'; (write everything to 'text file' in command form)\n");
-	fprintf(f,"#   read:          => read  'text file'; (read and execute every commands in 'text file')\n");
+	fprintf(f,"#   quit:    quits vpc.exe and exit.\n");
+	fprintf(f,"#   save:    writes everything to ./vpc.ini (same as => write './vpc.ini').\n");
+	fprintf(f,"#   restore: reads everything from ./vpc.ini (same as => read './vpc.ini').\n");
+	fprintf(f,"#   =:     Asignment => V|S = E;...;\n");
+	fprintf(f,"#   ?:     Printing  => ??     (print this help)\n");
+	fprintf(f,"#                      |?V...  (print all value of V specified)\n");
+	fprintf(f,"#                      |?S     (print value of S)\n");
+	fprintf(f,"#                      |?*     (print all V and S)\n");
+	fprintf(f,"#                      |?$     (print all S)\n");
+	fprintf(f,"#   if:              => if V L V;ex1;ex2;...exn;EOL (execute ex1 to exn if V L V is TRUE)\n");
+	fprintf(f,"#   repeat:          => repeat N;ex1;ex2;...exn;EOL (repeat ex1 to exn N times)\n");
+	fprintf(f,"#   while:           => while V L V;ex1;ex2;...exn;EOL (execute ex1 to exn while V L V is TRUE)\n");
+	fprintf(f,"#   load:            => load 'text file' V1,V2...; (read values from 'text file' and assign them to V)\n");
+	fprintf(f,"#   write:           => write 'text file'; (write everything to 'text file' in command form)\n");
+	fprintf(f,"#   read:            => read  'text file'; (read and execute every commands in 'text file')\n");
 	fprintf(f,"#\n# Environment settings:\n");
 	fprintf(f,"#   $title|$a|$b... = any comment string\n");
 	fprintf(f,"#   $round = up down|half_up|half_down ceilfloor|half_even:\n");
@@ -194,8 +198,9 @@ void PrintHelp(FILE *f)
 void DoPrint(PARSER *p)
 {
 	int i;
-	FILE* f = stdout;
-	int fNewLine = 1;
+	FILE *f = stdout;
+	char *psz;
+	char  ch;
 
 	if (TokenCount(p->r) == 2 && IsToken("?", p->r, 1)) {
 		PrintHelp(stdout);
@@ -213,14 +218,21 @@ void DoPrint(PARSER *p)
 		return;
 	}
 
-	if (TokenCount(p->r) == 3 && IsToken("+", p->r, 2)) fNewLine = 0;
 	for (i = 0; i < gmSetting; ++i) {
 		if (strcmp((const char*)TokenPTR(p->r,1),(const char*)gSetting[i].name)==0) {
-			((void(*)(PARSER *,FILE *,int))gSetting[i].print)(p,f, fNewLine); return;
+			((void(*)(PARSER *,FILE *,int))gSetting[i].print)(p,f, 1);
+			return;
 		};
 	}
-	if (TokenSize(p->r,1) == 1)  { PrintVariable(f, TokenChar(p->r, 1, 0), fNewLine); return;}
-	ERROR(fprintf(stderr, "Error: undefined variable(%s).\n", TokenPTR(p->r,1)));
+
+	psz = TokenPTR(p->r,1);
+	while(ch=*psz++) {
+		if(ch>'z' || ch<'a') {
+			ERROR(fprintf(stderr, "Error: undefined variable(%c).\n", ch));
+			return;
+		}
+		PrintVariable(f, ch, 1); 
+	}
 	return;
 }
 

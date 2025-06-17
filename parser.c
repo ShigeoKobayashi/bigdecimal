@@ -397,7 +397,7 @@ static int MkReversePolish(PARSER *p)
 			if (IsTokenStackEmpty(p)) PushToken(p,it);
 			else {
 				order = TokenPriority(p->r,it); /* info == operator priority */
-				while (!IsTokenStackEmpty(p) && TokenPriority(p->r, TopToken(p)) >= order) {
+				while (!IsTokenStackEmpty(p) && TokenPriority(p->r, TopToken(p)) > order) {
 					PutPolish(p, PopToken(p));
 				}
 				if (PushToken(p,it) < 0) return -1;
@@ -451,9 +451,23 @@ void ExecuteStatement(PARSER *p,int iStatement)
 	nt = TokenCount(p->r);
 
 	if (nt <= 0)                             goto Next;
-	if (nt == 1 && IsToken("quit", p->r, 0)) {
-		gfQuit = 1;
-		return;
+	if (nt == 1) {
+		if (IsToken("quit", p->r, 0)) {
+			gfQuit = 1;
+			return;
+		}
+		if (IsToken("break", p->r, 0)) {
+			gfBreak = 1;
+			return;
+		}
+		if (IsToken("save", p->r, 0)) {
+			DoWrite (p,"./vpc.ini");
+			return;
+		}
+		if (IsToken("restore", p->r, 0)) {
+			DoRead("./vpc.ini");
+			return;
+		}
 	}
 
 	ClearTokenStack(p);
@@ -475,13 +489,8 @@ void ExecuteStatement(PARSER *p,int iStatement)
 		DoSetting(p); /* In setting.c */
 		goto Next;
 	case '?':
-		DoPrint(p);         /* In calculaot.c */
+		DoPrint(p);         /* In setting.c */
 		goto Next;
-	}
-
-	if (IsToken("break", p->r, 0) && nt == 1) {
-		gfBreak = 1;
-		return;
 	}
 
 	if (IsToken("load", p->r, 0) && nt > 2) {
@@ -528,8 +537,13 @@ int ParseStatement(PARSER *p)
 
 	nt = TokenCount(p->r);
 
-	if (nt <= 0)                                   return 1;
-	if (nt == 1 && IsToken("quit", p->r, 0)) return 1;
+	if (nt <= 0)                         return 1;
+	if (nt == 1) {
+		if (IsToken("quit",    p->r, 0)) return 1;
+		if (IsToken("save",    p->r, 0)) return 1;
+		if (IsToken("restore", p->r, 0)) return 1;
+		if (IsToken("break",   p->r, 0)) return 1;
+	}
 
 	for (i = 0; i < nt; ++i) {
 		if (IsToken("(", p->r, i)) ++cBracket;
@@ -560,11 +574,9 @@ int ParseStatement(PARSER *p)
 		return 0;
 	case '?':
 		if (TokenCount(p->r) == 2) return 1;
-		if (TokenCount(p->r) == 3 && IsToken("+", p->r, 2)) return 1;
 		ERROR(fprintf(stderr, " Syntax error(?).\n"));
 		return 0;
 	}
-	if (IsToken("break", p->r, 0) && nt == 1)  return 1;
 	if (IsToken("load", p->r, 0) && nt > 2)    return 1;
 	if (IsToken("read", p->r, 0) && nt == 2)   return 1;
 	if (IsToken("write", p->r, 0) && nt == 2)  return 1;

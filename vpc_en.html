@@ -41,18 +41,24 @@ blockquote { margin-left: 15px;margin-top: 1px;}
 
 <body>
 <h1>VPC: Variable precision calculator</h1>
+<table>
+<tr><td width="15%">
+<img src="./vpc.bmp" width="100%">
+</td><td>
 <div align="right">
 This software can be redistributed under <a href="https://www.gnu.org/licenses/lgpl-3.0.en.html" target="_new">GNU Lesser General Public License</a>.<br/>
 <a href="https://github.com/ShigeoKobayashi/bigdecimal/" target="_new">Every source code of this software can be obtained through GitHub.</a><br/>
 Copylight (c) 2024 Shigeo Kobayashi. All rights reserved.<br/>
 <a href="./vpc_jp.html">Japanese</a>
-<br/>
 </div>
+</td></tr>
+</table>
+
 <hr/>
-Windows binary files(<a href="http://www.tinyforest.jp/oss/bigdecimal.zip">32-bit:vpc.exe and bigdecimal.dll</a>) can be downloaded. Only 2 files are necessary. Copy 2 files to any folder,and just run vpc.exe.<p/>
+Windows binary files(<a href="http://www.tinyforest.jp/oss/bigdecimal.zip">32-bit:vpc.exe and bigdecimal.dll</a>) can be downloaded. Only 2 files are necessary. Copy 2 files to any folder,and just run vpc.exe.<br/>
 To quit the progrmam,just enter <b>quit</b>.
 
-<h3>
+<h2>Contents: 
 <a href="#basic">Basics</a>  
 <a href="#functions">Functions</a>  
 <a href="#round_methods">Rounding</a>  
@@ -61,8 +67,12 @@ To quit the progrmam,just enter <b>quit</b>.
 <a href="#setting">Environment settings</a>  
 <a href="#IO">Input/Outout</a>  
 <a href="#Special">Special symbols</a>  
-</h3>
-VPC(Variable precision calculator)is a simple but a programmable calculator. Using <a href="http://www.tinyforest.jp/oss/bigdecimal.html" target="_new">Bigdecimal</a>,VPC can offer any number of effective digits you want as far as your computer memories installed allows.
+</h2>
+
+<b>VPC(Variable precision calculator)</b> is a simple but a <b>programmable calculator</b>. Using <a href="http://www.tinyforest.jp/oss/bigdecimal.html" target="_new">Bigdecimal</a>,<b>VPC can offer any number of effective digits you want</b> as far as your computer memories installed allows.
+
+Builtin functions such as <b>sin,cos,sqrt,pi(computes π)...</b>returns specified number of digits,of course.
+
 Following example computes the ratio of the circumference of a circle to its diameter(π).
 You can obtain 100 digits in default. But you can specify '$precision=200' explained later to get 200(or more) effective digits.
 <pre class=console>
@@ -101,7 +111,7 @@ Any computation result must be stored to any variable. And any variable's value 
 
 <pre class=console>
 Enter command
->a=pi()/4;b= power(sin(a),2) + power(cos(a),2);?a;?b
+>a=pi()/4;b= power(sin(a),2) + power(cos(a),2);?a;?b  #  ?a;?b can be ?ab
  a =  0.7853981633 9744830961 5660845819 8757210492 9234984377 6455243736 1480769541 0157155224 9657008706 3355292669 9554E0
  b =  0.1E1
 </pre>
@@ -116,9 +126,10 @@ To set environment setting variable's value, '= ' can be used. But only simple s
 </li>
 <li><b>Value printing:</b><br/>
 Value of a variable or a environment setting can be printed by ?. But,only a variable or a environment setting can be placed after ?. Any equation or computation can not be placed after ?.<br/>
-After printing any value, '?' prints <b>new-line</b>, but it prints '; ' if '+' is added at the end instead.<br/>
-Example:  a=1;b=2;?a+;?b  ==&gt; a = 1; b = 2<br/>
+More the one variable(variable only) can be specified after ?(<b>?abc prints values of a,b,and c</b>).
+<p/>
 Special usage:<blockquote>
+?? ... help messages are printed.<br/>
 ?* ... Value of all valrables and settings are printed.<br/>
 ?$ ... Value of all settings are printed.
 </blockquote>
@@ -133,7 +144,7 @@ This is the same as writing 2 lines like
 </blockquote>
 But writing 'a = pi()  ?a' without using ';' will be an error.
 </li>
-
+<b>Any line starting # is a comment line</b> and skipped without execution.<p/>
 <li><b>Quotation marks( ' or " ):</b><br/>
 Any character string having space or spcial character can be quoted by ( ' or " ).
 Quoted string is treated as a single token.
@@ -414,7 +425,11 @@ $format = '10*E q' <br/>
 <li>' ' :' ' or  ','. specify the delimitter of the number string. A space or comma can be specified.</li>
 <li>'q' :'q' or 'Q'. when 'Q' is specified, then the numeric string output is quoted by '. 'q' is not.
 </li>
-<li>If the same specifications are found,then later specification will be adopted.</li>
+<li>If the same specifications are found,then later specification will be adopted.<br/>
+Specifications can be specified separately as follows.<br/>
+  $format = 5F<br/>
+  $format = q<br/>
+</li>
 </ul>
     </td><td>
 Default value: '10*E q' <p/><br/>
@@ -432,8 +447,13 @@ Default value: '10*E q' <p/><br/>
 </table>
 
 <h3>vpc.ini file</h3>
-Before VPC is running, if you prepare the file vpc.ini at the current directory(usually,the place where vpc.exe is placed),it can be read and executed if you want. This may be convenient if you alway prefer to set $format,$precision,... before actual execution.
-
+Before VPC is running, if you prepare the file vpc.ini at the working directory(usually,the place where vpc.exe is placed),it can be read and executed if you want. This may be convenient if you alway prefer to set $format,$precision,... before actual execution.<p/>
+vpc.ini can be read or written at any time by following commands.
+<ul>
+<li> save    ... Every value of variables and settings are written to "./vpc.ini" file.</li>
+<li> restore ... Reads "./vpc.ini" file and executes contents.</li>
+</li>
+</ul>
 
 <a name="IO"></a>
 <h2>Input/Output</h2>

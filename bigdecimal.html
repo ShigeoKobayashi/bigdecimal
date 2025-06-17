@@ -311,33 +311,6 @@ This character applies for positive number.<br/>
 <p/>
 The results of these options can be easily confirmed by using <a href="#VPC"/>VPC</a>. 
 
-<pre class="console">
-VPC(Variable Precision Calculator) of Bigdecimal(V1)
-  Copyright (c) 2018 by Shigeo Kobayashi. Allrights reserved.
-
-Enter command
-? PI a
-  a= 0.3141592653 5897932384 6264338327 9502884197 1693993751 0582097494 4592307816 4062862089 9862803482 5342117063 2E1
-? dc?
-  10
-? dc= 5
-  5
-? a
-  a= 0.31415 92653 58979 32384 62643 38327 95028 84197 16939 93751 05820 97494 45923 07816 40628 62089 98628 03482 53421 17063 2E1
-? ds?
-  ' '
-? ds= ,
-  ','
-? a
-  a= 0.31415,92653,58979,32384,62643,38327,95028,84197,16939,93751,05820,97494,45923,07816,40628,62089,98628,03482,53421,17063,2E1
-? dl?
-  ' '
-? dl= +
-  '+'
-? a
-  a=+0.31415,92653,58979,32384,62643,38327,95028,84197,16939,93751,05820,97494,45923,07816,40628,62089,98628,03482,53421,17063,2E1
-?
-</pre>
 <a name="ROUND"/>
 <h2>Rounding operation</h2>
 Suppose C and A are Bigdecimal variables. The value assignment from A to C(C=A) is done by <b>VpAsgn(C,A,1)</b>.<br>If VpMaxLength(C) &lt; VpCurLength(A),then all digits of A can not be copied to C and the default rounding operation will be done. <br/>
