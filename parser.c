@@ -396,9 +396,17 @@ static int MkReversePolish(PARSER *p)
 		case VPC_BOPERATOR:
 			if (IsTokenStackEmpty(p)) PushToken(p,it);
 			else {
+				char ch = TokenChar(p->r, it, 0);
 				order = TokenPriority(p->r,it); /* info == operator priority */
-				while (!IsTokenStackEmpty(p) && TokenPriority(p->r, TopToken(p)) > order) {
-					PutPolish(p, PopToken(p));
+				if (ch == '=') {
+					/* '=' must be processed from right to left */
+					while (!IsTokenStackEmpty(p) && TokenPriority(p->r, TopToken(p)) > order) {
+						PutPolish(p, PopToken(p));
+					}
+				} else {
+					while (!IsTokenStackEmpty(p) && TokenPriority(p->r, TopToken(p)) >= order) {
+						PutPolish(p, PopToken(p));
+					}
 				}
 				if (PushToken(p,it) < 0) return -1;
 			}
