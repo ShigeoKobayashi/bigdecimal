@@ -400,6 +400,10 @@ static int MkReversePolish(PARSER *p)
 				order = TokenPriority(p->r,it); /* info == operator priority */
 				if (ch == '=') {
 					/* '=' must be processed from right to left */
+					if(TokenWhat(p->r,it-1)==VPC_NUMERIC) {
+						ERROR(fprintf(stderr, "Error: syntax error('=')\n"));
+						return -1;
+					}
 					while (!IsTokenStackEmpty(p) && TokenPriority(p->r, TopToken(p)) > order) {
 						PutPolish(p, PopToken(p));
 					}

@@ -157,7 +157,7 @@ extern int     gmSetting;
 
 
 /* Extern items defined in calculator.c */
-extern void         ComputePolish();
+extern void         ComputePolish(PARSER *p);
 extern int          ToIntFromSz(int* pi, char* sz);
 extern int          CreateNumericWorkVariable(char* szN);
 
