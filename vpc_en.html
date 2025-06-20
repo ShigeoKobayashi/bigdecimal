@@ -144,7 +144,7 @@ This is the same as writing 2 lines like
 </blockquote>
 But writing 'a = pi()  ?a' without using ';' will be an error.
 </li>
-<b>Any line starting # is a comment line</b> and skipped without execution.<p/>
+<p/>
 <li><b>Quotation marks( ' or " ):</b><br/>
 Any character string having space or spcial character can be quoted by ( ' or " ).
 Quoted string is treated as a single token.
@@ -476,7 +476,16 @@ The value of division by zero cannnot be represented by any numerical symbol.
 After division by zero, 'a' will be stored special symbol listed above.
 Division by zero is itself an error. And referencing to 'a' after the division is also an error.
 NaN is not a number and never coincident with anything including itself.
-
+<p/>
+<b>+0 and -0</b><br/>
+0(zero)can be represented as +0 or -0 (they are actually the same as listed bellow).
+<pre>
+  a  = -1*0; ?a  # =>  a = -0
+  b  =  1*0; ?b  # =>  b =  0
+  c  =  a*b; ?c  # =>  c = -0
+  $d = "0 == -0"
+  if a==b;   ?$d # => "0 == -0"
+</pre>
 <div align="right">
 Shigeo Kobayashi 2024-3-15
 </div>
