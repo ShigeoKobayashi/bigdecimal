@@ -12,4 +12,4 @@ To build this software on Windows => create Visual studio solution,and add sourc
 To use this library => include bigdecimal.h in your source codes(see vpc.c) and link appropriate library files.  
 This software has been tested on Windows-10(32-bit & 64-bit) and Linux(32-bit CentOS-5 & 64-bit CentOS-7). 
 
-Use(sample but usefull): [VPC: Variable precision calculator](http://www.tinyforest.jp/oss/vpc_en.html)
+Use(simple but useful demonstration program): [VPC: Variable precision calculator](http://www.tinyforest.jp/oss/vpc_en.html)
