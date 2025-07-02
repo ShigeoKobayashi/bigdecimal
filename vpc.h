@@ -40,6 +40,8 @@ extern int      gfBreak;   /* flag for 'break' */
 #define VPC_BOPERATOR  8  /*  binary operator:  + - * / =            */
 #define VPC_COMMA      9  /* .                                       */
 #define VPC_FUNC      10  /* sin cos etc                             */
+#define VPC_EXEC      11  /* ! to execute external command           */
+
 #define VPC_UNDEFINED -1  /* other than aboves.                      */
 
 typedef struct _TOKEN {

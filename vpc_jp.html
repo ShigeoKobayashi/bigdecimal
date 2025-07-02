@@ -56,7 +56,7 @@ Copylight (c) 2024 Shigeo Kobayashi. All rights reserved.<br/>
 
 <hr/>
 Windows 用実行ファイル(32-bit:vpc.exe と bigdecimal.dll) はここから<a href="./bigdecimal_win.zip">ダウンロード</a>できます。二つのファイルをどこか同じフォルダにコピーしてから、エクスプローラー等から vpc.exe をダブルクリックすれば直ぐに利用できます。<br/>
-プログラムを終了するには <b>quit</b> と入力してください。
+プログラムを終了するには <b>quit</b> または <b>exit</b> と入力してください。
 
 <div align="center">
 <h2>
@@ -161,6 +161,14 @@ write ".\result.txt" のようにして、現状の全ての状態をファイ�
 </li>
 <li><b>コメント：</b><br/>
 空白のかける場所に # を書くと、以降の行末までコメントと見なされ全て無視されます。
+</li>
+<li><b>外部コマンドの実行：</b><br/>
+以下のように、先頭に！を付けて任意の外部コマンドを実行できます。<br/>
+<pre>
+  ! dir
+  !"dir *.txt"
+</pre>
+</li>
 </ol>
 
 <a name="functions"></a>

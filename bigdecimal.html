@@ -56,7 +56,8 @@ To build this software,include "bigdecimal.h" in your program and
  <li>Linux   ... see makefile bundled.</li>
  <li>Windows ... follow Visual studio instructions.</li>
 </ul>
-
+For building Bigdecimal,only "bigdecimal.h" and "bigdecimal.cpp" are at least necessary.<br/>
+Other "*.h" and "*.c" files are for building VPC(Sample program for Bigdecimal demonstration).
 <ul>
 <li><a href="./bigdecimal_win.zip">Windows binary files(32-bit:vpc.exe,bigdecimal.dll,bigdecimal.lib) can be downloaded here.</a></li>
 <li><a name="VPC"/></a>
@@ -151,7 +152,9 @@ the resulting digits are being saved to c while the computation is going on.<br/
                                                                                                                                     <tr><td><b>c = VpAdd(c,a,b)</b></td><td> c = a+b</td></td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(a+b)</td></tr>
                                                                                                                                     <tr><td><b>c = VpSub(c,a,b)</b></td><td> c = a-b</td></td><td>the final digit of c is rounded if VpMaxLength(c)&lt;VpCurLength(a-b)</td></tr>
                                                                                                                                     <tr><td><b>c = VpMul(c,a,b)</b></td><td> c = a*b</td></td><td><b>VpMaxLength(c)&gt;VpCurLength(a)+VpCurLength(b)<sup>*</sup></b></td></tr>
-                                                                                                                                    <tr><td><b>c = VpDiv(c,r,a,b)</b></td><td> c = a/b (r is a remainder)</td><td><b>VpMaxLength(r)&gt;Max(VpCurLength(a),VpMaxLength(c)+VpCurLength(b))<sup>*</sup></b></td></tr>
+                                                                                                                                    <tr><td><b>c = VpDiv(c,r,a,b)</b></td><td> c = a/b </td><td><b>VpMaxLength(r)&gt;Max(VpCurLength(a),VpMaxLength(c)+VpCurLength(b))<sup>*</sup></b><br/>
+r is the remainder which satisfies r = a - c * b.
+</td></tr>
                                                                                                                                     <tr><td><b>f = VpCmp(a,b)</b></td><td> 1(if a&gt;b),0(if a==b),-1(if a&lt;b),VP_ERROR_NON_NUMERIC(if uncomparable).</td><td>return value is an integer. </td></tr>
 
                                                                                                                                     <tr><td><b>c = VpFrac(c,a)</b></td><td> copies all digits after the decimal point of a to c(|c|&lt;1 or c=0)</td><td>  </td></tr>

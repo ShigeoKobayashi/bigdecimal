@@ -56,7 +56,7 @@ Copylight (c) 2024 Shigeo Kobayashi. All rights reserved.<br/>
 
 <hr/>
 Windows binary files(<a href="./bigdecimal_win.zip">32-bit:vpc.exe and bigdecimal.dll</a>) can be downloaded. Only 2 files are necessary. Copy 2 files to any folder,and just run vpc.exe.<br/>
-To quit the progrmam,just enter <b>quit</b>.
+To quit the progrmam,just enter <b>quit</b> or <b>exit</b>.
 
 <h2>Contents: 
 <a href="#basic">Basics</a>  
@@ -167,6 +167,15 @@ write ".\result.txt" saves all variable values and settings to the file ".\resul
 </li>
 <li><b>Comment:</b><br/>
 # means the start of comment and any character from # to the end of line will be ignored,
+</li>
+<li><b>External command execution:</b><br/>
+Any external command preceeded by ! can be executed as follows.<br/>
+<pre>
+  ! dir
+  !"dir *.txt"
+</pre>
+</li>
+
 </ol>
 
 <a name="functions"></a>

@@ -146,7 +146,8 @@ static int IsOperator(READER *r,int it)
 	if (ch == '*') { SetTokenWhat(r, it,VPC_BOPERATOR); SetTokenPriority(r, it,40); return 1; }
 	if (ch == '/') { SetTokenWhat(r, it,VPC_BOPERATOR); SetTokenPriority(r, it,40); return 1; }
 	if (ch == ',') { SetTokenWhat(r, it,VPC_COMMA);     SetTokenPriority(r, it, 0); return 1; }
-
+	if (ch == '!') { SetTokenWhat(r, it,VPC_EXEC);      SetTokenPriority(r, it, 0); return 1; }
+	
 	if (ch == '+' || ch == '-') {
 		SetTokenWhat(r, it, VPC_BOPERATOR); SetTokenPriority(r, it,20);
 		if (it <= 0) {
@@ -464,7 +465,7 @@ void ExecuteStatement(PARSER *p,int iStatement)
 
 	if (nt <= 0)                             goto Next;
 	if (nt == 1) {
-		if (IsToken("quit", p->r, 0)) {
+		if (IsToken("quit", p->r, 0)||IsToken("exit", p->r, 0)) {
 			gfQuit = 1;
 			return;
 		}
@@ -502,6 +503,13 @@ void ExecuteStatement(PARSER *p,int iStatement)
 		goto Next;
 	case '?':
 		DoPrint(p);         /* In setting.c */
+		goto Next;
+	case '!':
+		if (TokenCount(p->r) == 2) {
+			system(TokenPTR(p->r,1));
+		} else {
+			ERROR(fprintf(stderr, "Error: Syntax error(!).\n"));
+		}
 		goto Next;
 	}
 
@@ -552,6 +560,7 @@ int ParseStatement(PARSER *p)
 	if (nt <= 0)                         return 1;
 	if (nt == 1) {
 		if (IsToken("quit",    p->r, 0)) return 1;
+		if (IsToken("exit",    p->r, 0)) return 1;
 		if (IsToken("save",    p->r, 0)) return 1;
 		if (IsToken("restore", p->r, 0)) return 1;
 		if (IsToken("break",   p->r, 0)) return 1;
@@ -587,6 +596,10 @@ int ParseStatement(PARSER *p)
 	case '?':
 		if (TokenCount(p->r) == 2) return 1;
 		ERROR(fprintf(stderr, " Syntax error(?).\n"));
+		return 0;
+	case '!':
+		if (TokenCount(p->r) == 2) return 1;
+		ERROR(fprintf(stderr, " Syntax error(!).\n"));
 		return 0;
 	}
 	if (IsToken("load", p->r, 0) && nt > 2)    return 1;
