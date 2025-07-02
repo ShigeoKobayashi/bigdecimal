@@ -475,11 +475,11 @@ void ExecuteStatement(PARSER *p,int iStatement)
 		}
 		if (IsToken("save", p->r, 0)) {
 			DoWrite (p,"./vpc.ini");
-			return;
+			goto Next;
 		}
 		if (IsToken("restore", p->r, 0)) {
 			DoRead("./vpc.ini");
-			return;
+			goto Next;
 		}
 	}
 
