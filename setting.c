@@ -179,7 +179,7 @@ void PrintHelp(FILE *f)
 	fprintf(f,"#   if:               => if V L V;ex1;ex2;...exn;EOL (execute ex1 to exn if V L V is TRUE)\n");
 	fprintf(f,"#   repeat:           => repeat N;ex1;ex2;...exn;EOL (repeat ex1 to exn N times)\n");
 	fprintf(f,"#   while:            => while V L V;ex1;ex2;...exn;EOL (execute ex1 to exn while V L V is TRUE)\n");
-	fprintf(f,"#   load:             => load 'text file' V1,V2...; (read values from 'text file' and assign them to V)\n");
+	fprintf(f,"#   load:             => load  'text file' V1 V2 ...; (read values from 'text file' and assign them to V)\n");
 	fprintf(f,"#   write:            => write 'text file'; (write everything to 'text file' in command form)\n");
 	fprintf(f,"#   read:             => read  'text file'; (read and execute every commands in 'text file')\n");
 	fprintf(f,"#\n# Environment settings:\n");
