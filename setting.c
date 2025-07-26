@@ -437,6 +437,7 @@ void ParseAndExecuteRepeat(PARSER *p)
 	while (--n >= 0) {
 		ExecuteStatement(p, iSaved + 1);
 		if (IsError()) return;
+		if (gfBreak||gfQuit) return;
 	}
 }
 
@@ -508,6 +509,7 @@ do_while:
 	if (fOk) {
 		ExecuteStatement(p, iSaved + 1);
 		if (IsError()) return;
+		if (gfBreak||gfQuit) return;
 		goto do_while;
 	}
 	return;
@@ -584,6 +586,7 @@ void ParseAndExecuteIf(PARSER* p, int nt)
 	if (fOk) {
 		ExecuteStatement(p, iSaved + 1);
 		if (IsError()) return;
+		if (gfBreak||gfQuit) return;
 	}
 	return;
 }

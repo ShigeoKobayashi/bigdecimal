@@ -34,13 +34,17 @@ void MyException(VP_HANDLE h, const char* msg)
 	ERROR(fprintf(stderr,"Error: %s\n", msg));
 }
 
-/*
+
+void CtrlC(int signal);
+void SetCTRLC()
+{
+	signal(SIGINT, CtrlC);
+}
 void CtrlC(int signal)
 {
-	printf("\n\'CTRL-C\' pressed. To quit the program, enter \'y\'(any other to continue)? ");
-	if(getchar()=='y') FinishVpc(signal);
+    ERROR(;);
+	SetCTRLC();
 }
-*/
 
 int main(int argc, char* argv[])
 {
@@ -50,9 +54,7 @@ int main(int argc, char* argv[])
 	printf("  Copyright (c) 2024 by Shigeo Kobayashi. Allrights reserved.\n");
 	printf("  Enter ?? for help.\n");
 
-/*
-	signal(SIGINT, CtrlC);
-*/
+	SetCTRLC();
 	VpSetExceptionHandler(MyException);
 
 	InitVpc(1024,512);
