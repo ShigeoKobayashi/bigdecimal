@@ -308,6 +308,7 @@ static int DoBinaryOperation(PARSER *p,int ixp, int token)
 	VP_HANDLE v2 = GetPolishVariable(p,ixp - 1);
 	VP_HANDLE w; 
 	int ixw;
+	int ixL = GetPolish(p,ixp-2); // Left hand var.
 
 	int l1 = 0;
 	int l2 = 0;
@@ -362,6 +363,9 @@ static int DoBinaryOperation(PARSER *p,int ixp, int token)
 		break;
 	case '=':
 		VpAsgn(v1, v2, 1);
+		if(ixL>=0) {
+			PrintVariable(stdout,ixL+'a',1); 
+		}
 		ixw = GetPolish(p,ixp - 1);
 		break;
 	default:
