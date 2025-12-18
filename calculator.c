@@ -9,6 +9,7 @@
  */
 #include "vpc.h"
 
+extern int gfLoop;
 int ToIntFromSz(int* pi, char* sz)
 {
 	int  sign = 1;
@@ -363,7 +364,7 @@ static int DoBinaryOperation(PARSER *p,int ixp, int token)
 		break;
 	case '=':
 		VpAsgn(v1, v2, 1);
-		if(ixL>=0) {
+		if(ixL>=0 && gfLoop == 0) {
 			PrintVariable(stdout,ixL+'a',1); 
 		}
 		ixw = GetPolish(p,ixp - 1);

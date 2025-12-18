@@ -9,6 +9,7 @@
  */
 #include "vpc.h"
 
+int       gfLoop = 0;
 char      gDelimiters[] = { '?' , '(', ')' ,  '=' , '*' , '/' , '+' , '-' , ',' , ';', '<' , '>' , '!' };
 int       gmDelimiters = sizeof(gDelimiters) / sizeof(gDelimiters[0]);
 
@@ -358,6 +359,7 @@ char ReadLine(READER* r)
 	int  nc;
 
 	ClearReader(r);
+	gfLoop = 0;
 	do {
 		r->iStatement = r->cStatements;
 		ch = ReadStatement(r ,&nc);

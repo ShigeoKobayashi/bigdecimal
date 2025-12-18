@@ -9,6 +9,7 @@
  */
 #include "vpc.h"
 
+extern 	int	gfLoop;
 
 SETTING gSetting[] = {
 	{"$title",VPC_SETTING,PrintTitle,DoTitle},
@@ -519,10 +520,12 @@ void ExecuteStatement(PARSER *p,int iStatement)
 	}
 
 	if (IsToken("repeat", p->r, 0) && nt == 2) {
+		gfLoop = 1;
 		ParseAndExecuteRepeat(p);
 		return; /* "repeat" executes to the end of line */
 	}
 	if (IsToken("while", p->r, 0) && (nt == 4 || nt == 5)) 	{
+		gfLoop = 1;
 		ParseAndExecuteWhile(p, nt);
 		return; 
 	}
