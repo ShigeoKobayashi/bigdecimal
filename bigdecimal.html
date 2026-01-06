@@ -48,21 +48,26 @@ This software can be redistributed under <a href="https://www.gnu.org/licenses/l
 Copylight (c) 2018 Shigeo Kobayashi. All rights reserved.
 </div>
 <hr/>
-<b>The Bigdecimal is a variable precision decimal arithmetic C/C++ library.</b><br/>
-Using Bigdecimal, you can obtain any number of significant digits in your computation.<p/>
+<b>The Bigdecimal is a variable precision(multi-precision or free-precision) decimal arithmetic C/C++ library.</b><br/>
+Using Bigdecimal:
+<ul>
+<li>You can obtain any number of significant digits in your computation(as far as the memories installed and the computation time allow).</li>
+<li>Functions such as sqrt(),pi(),sin(),cos,... are also prepaired that return value of required significant digits.</li>
+<li>You can specify many rounding methods(up,down,half up,half down,...) at any position of the resulting digits.</li>
+</ul>
 This software has been tested on Windows-10(32-bit&amp;64-bit) and Linux(32-bit CentOS-5 &amp; 64-bit CentOS-7).<br/>
 To build this software,include "bigdecimal.h" in your program and
 <ul>
  <li>Linux   ... see makefile bundled.</li>
  <li>Windows ... follow Visual studio instructions.</li>
 </ul>
-For building Bigdecimal,only "bigdecimal.h" and "bigdecimal.cpp" are at least necessary.<br/>
+For building Bigdecimal,only <b>"bigdecimal.h" and "bigdecimal.cpp" are at least necessary</b>.<br/>
 Other "*.h" and "*.c" files are for building VPC(Sample program for Bigdecimal demonstration).
 <ul>
-<li><a href="./bigdecimal_win.zip">Windows binary files(32-bit:vpc.exe,bigdecimal.dll,bigdecimal.lib) can be downloaded here.</a></li>
+<li><b>Windows binary files</b>(bigdecimal_win.zip: vpc.exe,bigdecimal.dll,bigdecimal.lib,...) can be downloaded from <a href="./bigdecimal_win.zip">here</a> or from <a href="https://github.com/ShigeoKobayashi/bigdecimal/" target="_new">GitHub</a>.</li>
 <li><a name="VPC"/></a>
-<a href="./vpc_en.html" target="_new">VPC(Variable Precision Calculator V2) for Bigdecimal API testing</a>
- is a simple but usefull programmable calculator using Bigdecimal API(VPC v2 is completely reorganized from v1. For detail of the VPC V2, see the VPC document).
+<a href="./vpc_en.html" target="_new"><b>VPC</b>(Variable Precision Calculator V2) for Bigdecimal API testing</a>
+ is a simple but <b>usefull programmable calculator</b> using Bigdecimal API(VPC v2 is completely reorganized from v1. For detail of the VPC V2, see the VPC document).
 </li>
 </ul>
 

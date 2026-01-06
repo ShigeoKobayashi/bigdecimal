@@ -10,6 +10,7 @@
  */
 #include "vpc.h"
 
+extern int gfLoop;
 int  gmPrecision   = 100;
 int  gmIterations  = 10000;
 
@@ -121,7 +122,9 @@ void OutputVariableTitle(FILE* f, char chv,int newline)
 
 void PrintVariableTitle(PARSER* p,FILE* f,int newline)
 {
-	char chv = TokenChar(p->r,1, 1);
+	char chv = TokenChar(p->r,0, 0);
+	if(chv=='?') chv = TokenChar(p->r,1, 1);
+	else         chv = TokenChar(p->r,0, 1);
 	OutputVariableTitle(f, chv,newline);
 }
 
@@ -184,7 +187,7 @@ void PrintHelp(FILE *f)
 	fprintf(f,"#   read:             => read  'text file'; (read and execute every commands in 'text file')\n");
 	fprintf(f,"#\n# Environment settings:\n");
 	fprintf(f,"#   $title|$a|$b... = any comment string\n");
-	fprintf(f,"#   $round = up down|half_up|half_down ceilfloor|half_even:\n");
+	fprintf(f,"#   $round = up|down|half_up|half_down ceilfloor|half_even:\n");
 	fprintf(f,"#   $format= '10*E q'; (default)\n");
 	fprintf(f,"#              '10' ... output number is separated in each 10 digits\n");
 	fprintf(f,"#              '*'  ... '*'|'+'|'-' can be specified to control the first character(see document in detail)\n");
@@ -338,8 +341,12 @@ void DoSetting(PARSER *p)
 
 	for (i = 0; i < gmSetting; ++i) {
 		if (IsToken(gSetting[i].name, r, 0)) {
-			((void(*)(PARSER *))gSetting[i].calc)(p); return;
-		}
+			((void(*)(PARSER *))gSetting[i].calc)(p); 
+			if(!gfLoop) {
+				((void(*)(PARSER *,FILE *,int))gSetting[i].print)(p,stdout, 1);
+			}
+			return;
+		};
 	}
 	ERROR(fprintf(stderr, "Error: invalid identifier(%s).\n", TokenPTR(r,0)));
 }
