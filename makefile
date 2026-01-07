@@ -4,6 +4,8 @@ VPC_SOURCES=vpc.c reader.c parser.c setting.c calculator.c
 VPC_HEADERS=vpc.h
 lib:
 	g++ -o libbigdecimal.so -shared -fPIC -fvisibility=hidden $(LIB_SOURCES)
+# for Cygwin use following line
+#	g++ -o bigdecimal.dll -shared -fPIC -fvisibility=hidden $(LIB_SOURCES)
 vpc:
 	gcc -L./ -o vpc $(VPC_SOURCES) -lbigdecimal
 run:
