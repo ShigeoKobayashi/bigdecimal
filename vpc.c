@@ -12,6 +12,8 @@
 int        gcError   = 0; /* flag for error(error counter in a line) */
 int        gfQuit    = 0; /* flag for 'quit' */
 int        gfBreak   = 0; /* flag for 'break' */
+int        gfLoop    = 0; /* 1 if in a loop like while ... */
+int        gfInFile  = 0; /* 1 if the input file != stdin  */
 
 void InitVpc(int cInput,int cToken)
 {

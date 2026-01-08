@@ -9,7 +9,9 @@
  */
 #include "vpc.h"
 
-int       gfLoop = 0;
+extern int gfLoop;
+extern int gfInFile;
+
 char      gDelimiters[] = { '?' , '(', ')' ,  '=' , '*' , '/' , '+' , '-' , ',' , ';', '<' , '>' , '!' };
 int       gmDelimiters = sizeof(gDelimiters) / sizeof(gDelimiters[0]);
 
@@ -39,6 +41,8 @@ int GetStatement(READER* r)
 READER* OpenReader(FILE* f, int max_line_char)
 {
 	READER* r = NULL;
+	if(f==stdin) gfInFile = 0;
+	else         gfInFile = 1;
 
 	r = (READER*)calloc(1, sizeof(READER));
 	if (r == NULL) {
@@ -75,6 +79,7 @@ void ClearReader(void* reader)
 {
 	int i;
 	READER* r = (READER*)reader;
+
 	if (r == NULL) return;
 	r->cBuffer = 0;
 	r->cTokens = 0;

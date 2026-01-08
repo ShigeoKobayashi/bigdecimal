@@ -10,6 +10,7 @@
 #include "vpc.h"
 
 extern 	int	gfLoop;
+extern  int gfInFile;
 
 SETTING gSetting[] = {
 	{"$title",VPC_SETTING,PrintTitle,DoTitle},
@@ -48,6 +49,7 @@ int gmSetting = sizeof(gSetting) / sizeof(gSetting[0]);
 
 void CloseParser(PARSER* p)
 {
+	gfInFile = 0;
 	if (p == NULL) return;
 	if (p->r) CloseReader(p->r);
 	if (p->TokenStack != NULL) free(p->TokenStack);
@@ -60,6 +62,8 @@ void CloseParser(PARSER* p)
 PARSER *OpenParser(FILE *f,int mToken)
 {
 	PARSER* p = (PARSER*)calloc(1, sizeof(PARSER));
+	if(f==stdin) gfInFile = 0;
+	else         gfInFile = 1;
 	if (p == NULL) {
 		ERROR(fprintf(stderr, "SYSTEM_ERROR: failed to allocate PARSER structur.\n"));
 		return NULL;
@@ -713,7 +717,7 @@ void ReadAndExecuteLines(FILE* f)
 	char ch = '\n';
 	PARSER* p = OpenParser(f,1024);
 	do {
-		if (IsEOL(ch) && f == stdin) printf("\n>");
+		if (IsEOL(ch) && !gfInFile) printf("\n>");
 		ClearGlobal();
 		ClearParser(p);
 		ch = ReadLine(p->r);

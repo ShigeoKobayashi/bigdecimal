@@ -11,6 +11,8 @@
 #include "vpc.h"
 
 extern int gfLoop;
+extern int gfInFile;
+
 int  gmPrecision   = 100;
 int  gmIterations  = 10000;
 
@@ -342,7 +344,7 @@ void DoSetting(PARSER *p)
 	for (i = 0; i < gmSetting; ++i) {
 		if (IsToken(gSetting[i].name, r, 0)) {
 			((void(*)(PARSER *))gSetting[i].calc)(p); 
-			if(!gfLoop) {
+			if((!gfLoop) && (!gfInFile)) {
 				((void(*)(PARSER *,FILE *,int))gSetting[i].print)(p,stdout, 1);
 			}
 			return;
