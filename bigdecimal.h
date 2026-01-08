@@ -155,7 +155,6 @@ VP_EXPORT(VP_UINT)   VpCurLength(VP_HANDLE h);
 VP_EXPORT(VP_UINT)   VpEffectiveDigits(VP_HANDLE h);
 VP_EXPORT(int)       VpExponent(VP_HANDLE h);
 
-
 VP_EXPORT(VP_UINT)   VpGetDigitSeparationCount();          /* default = 10 */
 VP_EXPORT(VP_UINT)   VpSetDigitSeparationCount(VP_UINT m);
 VP_EXPORT(char)      VpGetDigitSeparator();                /* default = ' ' */
@@ -236,4 +235,5 @@ VP_EXPORT(VP_HANDLE) VpLog(VP_HANDLE y,VP_HANDLE x);
 #if defined(__cplusplus)
 }  /* extern "C" { */
 #endif
+
 #endif /* _BIG_DECIMAL_H */
