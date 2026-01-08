@@ -1,3 +1,8 @@
+/*
+  Windows only.
+   This file is only necessary for building bigdecimal(.dll) libraly on the environment of Windows.
+*/
+
 #include "stdafx.h"
 
 BOOL APIENTRY DllMain( HMODULE hModule,
