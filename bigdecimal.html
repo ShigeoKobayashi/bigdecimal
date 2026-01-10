@@ -3,7 +3,7 @@
 <title>Bigdecimal: Variable precision decimal arithmetic C/C++ API library</title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
 <meta name="keywords" content="Bigdecimal: Variable precision decimal arithmetic C/C++ library">
-<meta name="description" content="Bigdecimal: Variable precision decimal arithmetic C/C++ library v1.1">
+<meta name="description" content="Bigdecimal: Variable precision decimal arithmetic C/C++ library">
 <style type=text/css>
 body {color: #3f0f0f; background: #efefef; margin-left: 4em; margin-right: 4em;}
 h1 {color: #f0f0f0; background-color: #30A0FF; border-color: #FF00FF; width: 100%;
@@ -76,12 +76,12 @@ Other "*.h" and "*.c" files are for building <a href="./vpc_en.html" target="_ne
 <H2>Introduction</H2>
 To use Bigdecimal,"bigdecimal.h" should be included in your C/C++ source program.<br/>
 And,Bigdecimal variable must be declared before it is used.<br/>
-To declare Bigdecimal variable, use VP_HANDLE which is defined in the bigdecimal.h.<br/>
-Bigdecimal variable(VP_HANDLE) is simply a pointer to the structure Real(see bigdecimal.h) which is allocated somewhere and consists of an array of digits and other informations.<br/>
-On API interface explanation of this documentation,<u><b>a,b,c,and r are Bigdecimal</b> variables(VP_HANDLE)</u> and <u><b>i,f,m,n are integers</b></u>(signed or unsigned depending on the context) unless otherwise noted.
+To declare Bigdecimal variable, use <b>VP_HANDLE(which is exactly the same as VP_VARIABLE)</b> defined in the bigdecimal.h.<br/>
+Bigdecimal variable (VP_HANDLE or VP_VARIABLE) is simply a pointer to the structure Real(see bigdecimal.h) which is allocated somewhere and consists of an array of digits and other informations.<br/>
+On API interface explanation of this documentation,<u><b>a,b,c,and r are Bigdecimal</b> variables</u> and <u><b>i,f,m,n are integers</b></u>(signed or unsigned depending on the context) unless otherwise noted.
 <a name="ALLOC"/>
 <h3>Allocation &amp; Free</h3>
-Unlike double or float in C/C++,it is noted that Bigdecimal variable(VP_HANDLE) is a container of digits with certain size.<br/>
+Unlike double or float in C/C++,it is noted that Bigdecimal variable is actually a pointer to the container of certain size.<br/>
 Any Bigdecimal variable must be allocated by <b>VpAlloc()</b> or <b>VpMemAlloc()</b> before it is used,and freed(by <b>VpFree()</b>) when it is no more used as following example.
 <pre><code>
 #include &lt;stdio.h&gt;
