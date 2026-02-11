@@ -2213,7 +2213,8 @@ VP_EXPORT(VP_HANDLE)
         return VpSetZero((VP_HANDLE)c,isw*VP_SIGN(a));
     }
     if(C==A) {
-        return VpException(VpSetNaN(C),"Invalid argument for VpAsgn(y==x)!");
+        return C;
+      /*  return VpException(VpSetNaN(C),"Invalid argument for VpAsgn(y==x)!"); */
     }
 
     c->exponent = a->exponent;    /* store  exponent */
