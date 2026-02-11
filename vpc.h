@@ -25,7 +25,7 @@ extern int      gfQuit;    /* flag for 'quit' */
 extern int      gfBreak;   /* flag for 'break' */
 
 #define ERROR(s)  {gcError++; s ;}
-#define FATAL(s)  {s ; FinishVpc(-1);}
+#define FATAL(s)  {s ; 	getchar(); FinishVpc(-1);}
 #define IsError() (gcError>0)
 #define IsQuit()  (gfQuit!=0)
 

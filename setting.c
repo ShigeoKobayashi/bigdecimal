@@ -457,6 +457,7 @@ void ParseAndExecuteWhile(PARSER *p, int nt)
 	VP_HANDLE v1;
 	VP_HANDLE v2;
 	int f = 0;
+	int iv1=1,iv2=3;
 	char chv1 = TokenChar(p->r, 1, 0);
 	char chv2;
 	char op1;
@@ -470,6 +471,7 @@ void ParseAndExecuteWhile(PARSER *p, int nt)
 	else {
 		op2 = TokenChar(p->r, 3, 0);
 		chv2 = TokenChar(p->r, 4, 0);
+		iv2=4;
 	}
 
 	chv1 = chv1 - 'a';
@@ -478,10 +480,16 @@ void ParseAndExecuteWhile(PARSER *p, int nt)
 	if ((chv1 >= 0 && chv1 <= 25)) {
 		if (!EnsureVariable(chv1, gmPrecision)) return;
 		v1 = gVariables[chv1];
+	} else if(TokenWhat(p->r,iv1)!=VPC_NUMERIC) {
+		ERROR((fprintf(stderr,"ERROR:Not a variable nor a numeric(%s).\n",TokenPTR(p->r,iv1))));
+		return;
 	}
 	if ((chv2 >= 0 && chv2 <= 25)) {
 		if (!EnsureVariable(chv2, gmPrecision)) return;
 		v2 = gVariables[chv2];
+	} else if(TokenWhat(p->r,iv2)!=VPC_NUMERIC) {
+		ERROR((fprintf(stderr,"ERROR:Not a variable nor a numeric(%s).\n",TokenPTR(p->r,iv2))));
+		return;
 	}
 
 do_while:
@@ -531,6 +539,7 @@ void ParseAndExecuteIf(PARSER* p, int nt)
 	VP_HANDLE v1;
 	VP_HANDLE v2;
 	int f = 0;
+	int iv1=1,iv2=3;
 	char chv1 = TokenChar(p->r, 1, 0);
 	char chv2;
 	char op1;
@@ -544,6 +553,7 @@ void ParseAndExecuteIf(PARSER* p, int nt)
 	else {
 		op2 = TokenChar(p->r, 3, 0);
 		chv2 = TokenChar(p->r, 4, 0);
+		iv2=4;
 	}
 
 	chv1 = chv1 - 'a';
@@ -552,10 +562,16 @@ void ParseAndExecuteIf(PARSER* p, int nt)
 	if ((chv1 >= 0 && chv1 <= 25)) {
 		if (!EnsureVariable(chv1, gmPrecision)) return;
 		v1 = gVariables[chv1];
+	} else if(TokenWhat(p->r,iv1)!=VPC_NUMERIC) {
+		ERROR((fprintf(stderr,"ERROR:Not a variable nor a numeric(%s).\n",TokenPTR(p->r,iv1))));
+		return;
 	}
 	if ((chv2 >= 0 && chv2 <= 25)) {
 		if (!EnsureVariable(chv2, gmPrecision)) return;
 		v2 = gVariables[chv2];
+	} else if(TokenWhat(p->r,iv2)!=VPC_NUMERIC) {
+		ERROR((fprintf(stderr,"ERROR:Not a variable nor a numeric(%s).\n",TokenPTR(p->r,iv2))));
+		return;
 	}
 
 	SetStatement(p->r, iSaved);
